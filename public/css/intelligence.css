@@ -1,0 +1,18 @@
+/* Brand tokens only; layout, typography, spacing, and components come from @tabler/core. */
+:root,
+[data-bs-theme="light"] {
+    --tblr-primary: #26745d;
+    --tblr-primary-rgb: 38, 116, 93;
+}
+
+
+.answer {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.8;
+}
+
+.prompt-cell {
+    max-width: 20rem;
+    white-space: normal;
+}

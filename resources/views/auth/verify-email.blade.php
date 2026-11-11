@@ -1,0 +1,2 @@
+@extends('layouts.app',['title'=>'Verify your email'])
+@section('content')<div class="card card-body"><p>Verify your email address before using Free search credits. No public registration or paid request is enabled by verification.</p><form method="post" action="{{ route('verification.send') }}">@csrf<button class="btn btn-primary" type="submit">Send verification link</button></form></div>@endsection

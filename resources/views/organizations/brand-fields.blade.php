@@ -1,0 +1,11 @@
+@php($prefix = 'brand-'.($brand?->id??'new'))
+<div class="row g-3">
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-name">Brand name</label><input class="form-control" id="{{ $prefix }}-name" name="name" required maxlength="180" value="{{ $brand?->name }}"></div>
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-website">Official website</label><input class="form-control" id="{{ $prefix }}-website" name="official_website" type="url" required maxlength="2048" value="{{ $brand?->official_website }}"></div>
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-industry">Industry / category</label><input class="form-control" id="{{ $prefix }}-industry" name="industry" required maxlength="100" value="{{ $brand?->industry }}"></div>
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-country">Country code</label><input class="form-control" id="{{ $prefix }}-country" name="country" required minlength="2" maxlength="2" pattern="[A-Z]{2}" placeholder="ID" value="{{ $brand?->country }}"><div class="form-hint">Two-letter uppercase country code.</div></div>
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-description">Description</label><textarea class="form-control" id="{{ $prefix }}-description" name="description" rows="3" maxlength="4000">{{ $brand?->description }}</textarea></div>
+<div class="col-md-6"><label class="form-label" for="{{ $prefix }}-aliases">Verified aliases</label><textarea class="form-control" id="{{ $prefix }}-aliases" name="aliases" rows="3" maxlength="4000">{{ implode("\n",$brand?->aliases??[]) }}</textarea><div class="form-hint">One verified, unambiguous name per line.</div></div>
+@if($brand)<div class="col-12"><label class="form-check"><input type="hidden" name="active" value="0"><input class="form-check-input" type="checkbox" name="active" value="1" @checked($brand->active)><span class="form-check-label">Active brand</span></label></div>@endif
+<div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox" name="verified" value="1" required><span class="form-check-label">I verified this brand identity, aliases, and official website. Competitors are managed separately in the brand's identity registry.</span></label></div>
+</div>

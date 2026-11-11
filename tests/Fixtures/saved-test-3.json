@@ -1,0 +1,220 @@
+{
+    "text": "Ubud, Bali, is renowned for its lush jungles and tranquil retreats. Here are some of the top luxury jungle resorts in the area:\n\n**[Four Seasons Resort Bali at Sayan](https://www.google.com/maps/search/Four+Seasons+Resort+Bali+at+Sayan%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nNestled in the Ayung River Valley, this resort offers private pool villas with river or valley views, exceptional dining, and a renowned spa.\n\n**[Mandapa, a Ritz-Carlton Reserve](https://www.google.com/maps/search/Mandapa%2C+a+Ritz-Carlton+Reserve%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nSet along the Ayung River, Mandapa provides private pool villas, personalized butler service, and immersive wellness experiences.\n\n**[Capella Ubud](https://www.google.com/maps/search/Capella+Ubud%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nDesigned as a luxury tented camp, Capella Ubud features individually styled tents with private pools, blending adventure with comfort.\n\n**[Buahan, a Banyan Tree Escape](https://www.google.com/maps/search/Buahan%2C+a+Banyan+Tree+Escape%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nEmbracing a 'no walls, no doors' concept, this resort offers open-air villas with panoramic jungle views, emphasizing sustainability.\n\n**[The Kayon Jungle Resort](https://www.google.com/maps/search/The+Kayon+Jungle+Resort%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nPerched above the forest canopy, this resort provides private pool villas, holistic spa treatments, and romantic dining experiences.\n\n**[COMO Shambhala Estate](https://www.google.com/maps/search/COMO+Shambhala+Estate%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nA wellness-focused retreat offering personalized programs, organic cuisine, and luxurious accommodations amidst the jungle.\n\nEach of these resorts offers a unique blend of luxury and immersion in Bali's natural beauty, ensuring a memorable stay in Ubud's enchanting jungle setting. ",
+    "raw_metadata": {
+        "id": "resp_06e64d1bc856166c016af29a7cde9487d2be4d2dbcdf1f80bd",
+        "text": {
+            "format": {
+                "type": "text"
+            },
+            "verbosity": "medium"
+        },
+        "user": null,
+        "error": null,
+        "image": {
+            "context_compression": "disabled"
+        },
+        "model": "gpt-4.1-mini-2025-04-14",
+        "store": false,
+        "tools": [
+            {
+                "type": "web_search",
+                "user_location": {
+                    "city": null,
+                    "type": "approximate",
+                    "region": null,
+                    "country": "SG",
+                    "timezone": null
+                },
+                "return_token_budget": "default",
+                "search_context_size": "medium",
+                "search_content_types": [
+                    "text"
+                ]
+            }
+        ],
+        "top_p": 1,
+        "usage": {
+            "input_tokens": 8528,
+            "total_tokens": 9040,
+            "output_tokens": 512,
+            "input_tokens_details": {
+                "cached_tokens": 0,
+                "cache_write_tokens": 0
+            },
+            "output_tokens_details": {
+                "reasoning_tokens": 0
+            }
+        },
+        "object": "response",
+        "output": [
+            {
+                "id": "ws_06e64d1bc856166c016af29a7d49d087d2883a5de5feede6cc",
+                "type": "web_search_call",
+                "action": {
+                    "type": "search",
+                    "query": "Best luxury jungle resorts in Ubud Bali",
+                    "queries": [
+                        "Best luxury jungle resorts in Ubud Bali"
+                    ]
+                },
+                "status": "completed"
+            },
+            {
+                "id": "msg_06e64d1bc856166c016af29a7e651487d29289276870d9ca7b",
+                "role": "assistant",
+                "type": "message",
+                "status": "completed",
+                "content": [
+                    {
+                        "text": "Ubud, Bali, is renowned for its lush jungles and tranquil retreats. Here are some of the top luxury jungle resorts in the area:\n\n**[Four Seasons Resort Bali at Sayan](https://www.google.com/maps/search/Four+Seasons+Resort+Bali+at+Sayan%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nNestled in the Ayung River Valley, this resort offers private pool villas with river or valley views, exceptional dining, and a renowned spa.\n\n**[Mandapa, a Ritz-Carlton Reserve](https://www.google.com/maps/search/Mandapa%2C+a+Ritz-Carlton+Reserve%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nSet along the Ayung River, Mandapa provides private pool villas, personalized butler service, and immersive wellness experiences.\n\n**[Capella Ubud](https://www.google.com/maps/search/Capella+Ubud%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nDesigned as a luxury tented camp, Capella Ubud features individually styled tents with private pools, blending adventure with comfort.\n\n**[Buahan, a Banyan Tree Escape](https://www.google.com/maps/search/Buahan%2C+a+Banyan+Tree+Escape%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nEmbracing a 'no walls, no doors' concept, this resort offers open-air villas with panoramic jungle views, emphasizing sustainability.\n\n**[The Kayon Jungle Resort](https://www.google.com/maps/search/The+Kayon+Jungle+Resort%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nPerched above the forest canopy, this resort provides private pool villas, holistic spa treatments, and romantic dining experiences.\n\n**[COMO Shambhala Estate](https://www.google.com/maps/search/COMO+Shambhala+Estate%2C+Ubud%2C+Indonesia?utm_source=openai)**\n_Ubud, Indonesia_\nA wellness-focused retreat offering personalized programs, organic cuisine, and luxurious accommodations amidst the jungle.\n\nEach of these resorts offers a unique blend of luxury and immersion in Bali's natural beauty, ensuring a memorable stay in Ubud's enchanting jungle setting. ",
+                        "type": "output_text",
+                        "logprobs": [],
+                        "annotations": [
+                            {
+                                "url": "https://www.google.com/maps/search/Four+Seasons+Resort+Bali+at+Sayan%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "Four Seasons Resort Bali at Sayan",
+                                "end_index": 275,
+                                "start_index": 131
+                            },
+                            {
+                                "url": "https://www.google.com/maps/search/Mandapa%2C+a+Ritz-Carlton+Reserve%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "Mandapa, a Ritz-Carlton Reserve",
+                                "end_index": 583,
+                                "start_index": 441
+                            },
+                            {
+                                "url": "https://www.google.com/maps/search/Capella+Ubud%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "Capella Ubud",
+                                "end_index": 839,
+                                "start_index": 737
+                            },
+                            {
+                                "url": "https://www.google.com/maps/search/Buahan%2C+a+Banyan+Tree+Escape%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "Buahan, a Banyan Tree Escape",
+                                "end_index": 1134,
+                                "start_index": 998
+                            },
+                            {
+                                "url": "https://www.google.com/maps/search/The+Kayon+Jungle+Resort%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "The Kayon Jungle Resort",
+                                "end_index": 1416,
+                                "start_index": 1292
+                            },
+                            {
+                                "url": "https://www.google.com/maps/search/COMO+Shambhala+Estate%2C+Ubud%2C+Indonesia?utm_source=openai",
+                                "type": "url_citation",
+                                "title": "COMO Shambhala Estate",
+                                "end_index": 1693,
+                                "start_index": 1573
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "status": "completed",
+        "billing": {
+            "payer": "developer"
+        },
+        "metadata": [],
+        "reasoning": {
+            "effort": null,
+            "context": null,
+            "summary": null
+        },
+        "background": false,
+        "created_at": 1794284157,
+        "moderation": null,
+        "tool_usage": {
+            "image_gen": {
+                "input_tokens": 0,
+                "total_tokens": 0,
+                "output_tokens": 0,
+                "input_tokens_details": {
+                    "text_tokens": 0,
+                    "image_tokens": 0
+                },
+                "output_tokens_details": {
+                    "text_tokens": 0,
+                    "image_tokens": 0
+                }
+            },
+            "web_search": {
+                "num_requests": 1
+            }
+        },
+        "truncation": "disabled",
+        "temperature": 1,
+        "tool_choice": "required",
+        "completed_at": 1794284160,
+        "instructions": "Answer in English. Use web search to answer the travel query. Clearly distinguish recommendations from hotels only mentioned for context. Cite sources.",
+        "service_tier": "auto",
+        "top_logprobs": 0,
+        "max_tool_calls": null,
+        "access_programs": null,
+        "presence_penalty": 0,
+        "prompt_cache_key": null,
+        "frequency_penalty": 0,
+        "max_output_tokens": 2500,
+        "safety_identifier": null,
+        "incomplete_details": null,
+        "parallel_tool_calls": true,
+        "previous_response_id": null,
+        "prompt_cache_retention": "in_memory"
+    },
+    "citations": [
+        {
+            "url": "https://www.google.com/maps/search/Four+Seasons+Resort+Bali+at+Sayan%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "Four Seasons Resort Bali at Sayan",
+            "domain": "www.google.com",
+            "start_index": 131,
+            "end_index": 275,
+            "is_official": false
+        },
+        {
+            "url": "https://www.google.com/maps/search/Mandapa%2C+a+Ritz-Carlton+Reserve%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "Mandapa, a Ritz-Carlton Reserve",
+            "domain": "www.google.com",
+            "start_index": 441,
+            "end_index": 583,
+            "is_official": false
+        },
+        {
+            "url": "https://www.google.com/maps/search/Capella+Ubud%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "Capella Ubud",
+            "domain": "www.google.com",
+            "start_index": 737,
+            "end_index": 839,
+            "is_official": false
+        },
+        {
+            "url": "https://www.google.com/maps/search/Buahan%2C+a+Banyan+Tree+Escape%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "Buahan, a Banyan Tree Escape",
+            "domain": "www.google.com",
+            "start_index": 998,
+            "end_index": 1134,
+            "is_official": false
+        },
+        {
+            "url": "https://www.google.com/maps/search/The+Kayon+Jungle+Resort%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "The Kayon Jungle Resort",
+            "domain": "www.google.com",
+            "start_index": 1292,
+            "end_index": 1416,
+            "is_official": false
+        },
+        {
+            "url": "https://www.google.com/maps/search/COMO+Shambhala+Estate%2C+Ubud%2C+Indonesia?utm_source=openai",
+            "title": "COMO Shambhala Estate",
+            "domain": "www.google.com",
+            "start_index": 1573,
+            "end_index": 1693,
+            "is_official": false
+        }
+    ]
+}
