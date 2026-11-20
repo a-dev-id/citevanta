@@ -1,0 +1,65 @@
+// =============================================================================
+// Auth layout: centred card on a dark background, wordmark above it.
+// =============================================================================
+
+.cv-auth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 16px;
+    background: $cv-auth-bg;
+}
+
+.cv-auth__brand {
+    margin-bottom: 22px;
+
+    .cv-wordmark {
+        font-size: 30px;
+    }
+}
+
+.cv-auth__card {
+    width: 100%;
+    max-width: 420px;
+    border: 0;
+    border-top: 4px solid $cv-primary;
+    border-radius: $cv-card-radius;
+    background: $cv-white;
+
+    .card-body {
+        padding: 30px;
+    }
+}
+
+.cv-auth__title {
+    margin: 0 0 4px;
+    color: $cv-heading-color;
+    font-size: 20px;
+}
+
+.cv-auth__subtitle {
+    margin: 0 0 22px;
+    color: $cv-muted-color;
+}
+
+.cv-auth__footer {
+    margin-top: 18px;
+    color: $cv-auth-footer-color;
+    font-size: $cv-font-size-sm;
+
+    a {
+        color: $cv-auth-footer-link;
+        text-decoration: underline;
+    }
+}
+
+// Honeypot field on the registration form: hidden from people, filled by bots.
+.cv-hp {
+    position: absolute !important;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}

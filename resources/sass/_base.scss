@@ -1,0 +1,72 @@
+// Base typography and accessibility helpers.
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-size: $cv-font-size-base;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -.01em;
+}
+
+a {
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+// Visible keyboard focus everywhere (mouse clicks do not show the ring).
+:focus-visible {
+    outline: 2px solid $cv-focus-color;
+    outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-check-input:focus-visible,
+.accordion-button:focus-visible {
+    outline: 2px solid $cv-focus-color;
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+.cv-skip-link {
+    position: absolute;
+    top: -100px;
+    left: 12px;
+    z-index: 2000;
+    padding: 8px 14px;
+    background: $cv-white;
+    color: $cv-heading-color;
+    border-radius: $cv-card-radius;
+
+    &:focus {
+        top: 12px;
+    }
+}
+
+.text-heading {
+    color: $cv-heading-color;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+.fw-semibold {
+    font-weight: 600 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+    }
+}

@@ -1,0 +1,246 @@
+// =============================================================================
+// CiteVanta design tokens. Every colour, size and font lives here.
+// Change $cv-primary to rebrand the whole app.
+// =============================================================================
+@use "sass:color";
+
+// -- Brand & status ------------------------------------------------------------
+$cv-primary: #0088cc;
+$cv-success: #47a447;
+$cv-warning: #ed9c28;
+$cv-danger: #d2322d;
+$cv-info: #5bc0de;
+
+// Darker shades used where white text sits on the colour (buttons, solid
+// badges) so contrast stays at WCAG AA (4.5:1). The base colours above are
+// still used for borders, icons, progress bars and other non-text accents.
+$cv-primary-strong: color.adjust($cv-primary, $lightness: -6%);   // #0074ad
+$cv-success-strong: color.adjust($cv-success, $lightness: -10%);  // #378037
+$cv-danger-strong: $cv-danger;                                     // already 4.9:1
+
+// Accent on dark backgrounds (header/sidebar): lighter so it reads on charcoal.
+$cv-primary-on-dark: color.adjust($cv-primary, $lightness: 12%);
+
+// -- Typography ----------------------------------------------------------------
+$cv-font-family: "Open Sans", Arial, sans-serif;
+$cv-font-size-base: 13px;
+$cv-font-size-sm: 12px;
+$cv-line-height: 1.6;
+$cv-heading-color: #33353f;
+$cv-body-color: #5c5c5c;      // 6.4:1 on white
+$cv-muted-color: #5f656c;     // >= 5:1 on white, card headers and the grey content area
+$cv-link-color: #006699;      // 5.3:1 on the grey content area, 6.3:1 on white
+
+// -- Header --------------------------------------------------------------------
+$cv-header-height: 60px;
+$cv-header-bg: #171717;
+$cv-header-border: #000;
+$cv-header-color: #c3c3c3;
+$cv-header-color-hover: #fff;
+$cv-header-divider: #2e2e2e;
+$cv-header-dropdown-bg: #fff;
+$cv-notifications-width: 320px;
+
+// -- Sidebar -------------------------------------------------------------------
+$cv-sidebar-width: 280px;
+$cv-sidebar-collapsed-width: 72px;
+$cv-sidebar-bg: #1d2127;
+$cv-sidebar-border: #242830;
+$cv-sidebar-color: #abb4be;
+$cv-sidebar-color-hover: #e2e5e8;
+$cv-sidebar-heading-color: #8d97a3;
+$cv-sidebar-hover-bg: #21262d;
+$cv-sidebar-active-bg: #282d36;
+$cv-sidebar-active-color: #fff;
+$cv-sidebar-submenu-bg: #1a1e23;
+$cv-sidebar-active-border: 3px;
+$cv-sidebar-item-padding-y: 12px;
+$cv-sidebar-item-padding-x: 25px;
+$cv-sidebar-icon-width: 20px;
+
+// -- Page title bar ------------------------------------------------------------
+$cv-pagebar-height: 50px;
+$cv-pagebar-bg: #171717;
+$cv-pagebar-border: #000;
+$cv-pagebar-title-color: #fff;
+$cv-pagebar-title-size: 20px;
+$cv-pagebar-crumb-color: #a3a3a3;
+$cv-pagebar-divider-color: #8a8a8a;
+
+// -- Content -------------------------------------------------------------------
+$cv-content-bg: #ecedf0;
+$cv-content-padding: 28px;
+$cv-content-padding-sm: 16px;
+
+// -- Cards ---------------------------------------------------------------------
+$cv-card-bg: #fff;
+$cv-card-radius: 5px;
+$cv-card-header-bg: #f6f6f6;
+$cv-card-border-color: #dadada;
+$cv-card-title-size: 18px;
+$cv-card-title-weight: 400;
+$cv-card-padding: 15px;
+$cv-card-action-color: #8a8a8a;
+$cv-card-gap: 20px;
+
+// -- Widgets -------------------------------------------------------------------
+$cv-widget-icon-size: 64px;
+$cv-widget-amount-size: 24px;
+
+// -- Misc ----------------------------------------------------------------------
+$cv-focus-color: $cv-primary;
+$cv-focus-color-on-dark: #7fc8ec;
+$cv-skeleton-base: #e4e6ea;
+$cv-skeleton-shine: #f3f4f6;
+$cv-auth-bg: #1d2127;
+$cv-transition: .2s ease;
+
+// -- Neutrals and component details -------------------------------------------
+$cv-white: #fff;
+$cv-header-hover-bg: #222;
+$cv-header-strong-color: #e5e5e5;      // names in the header
+$cv-header-subtle-color: #8f8f8f;      // small labels in the header (5.5:1)
+$cv-header-crumb-active: #d9d9d9;
+$cv-toggle-bg: #2a2d32;
+$cv-toggle-hover-bg: #34383e;
+$cv-sidebar-badge-bg: #3a3f47;
+$cv-sidebar-badge-color: #d6dbe0;
+$cv-sidebar-scrollbar: #3a3f47;
+$cv-dropdown-divider: #f0f0f0;
+$cv-card-action-hover-bg: #e9e9e9;
+$cv-card-footer-bg: #fafafa;
+$cv-row-highlight-bg: #eaf5fb;
+$cv-empty-icon-bg: #eef0f3;
+$cv-empty-icon-color: #8b9199;
+$cv-answer-bg: #fbfbfc;
+$cv-answer-border: #e6e7ea;
+$cv-mark-bg: #fff1c2;
+$cv-step-border: #d5d8dd;
+$cv-placeholder-border: #cfd3d8;
+$cv-widget-dark: #2f3540;
+$cv-neutral: #9aa0a6;
+$cv-auth-footer-color: #a9b0b8;
+$cv-auth-footer-link: #d6dbe0;
+
+// Badge text colours (dark shades of the status colours, AA on tinted bg).
+$cv-badge-success-text: #2b6a2b;
+$cv-badge-warning-text: #8a5410;
+$cv-badge-danger-text: #9b2420;
+$cv-badge-info-text: #1d6d84;
+$cv-badge-primary-text: #005a87;
+$cv-badge-neutral-text: #4b5057;
+$cv-badge-tint: .14;
+$cv-badge-border-tint: .35;
+
+// Chart series in fixed order (validated for colour-blind separation as a set;
+// slot 1 is the hotel / overall line). A colour follows its entity, never its rank.
+$cv-chart-series: (#0088cc, #eb6834, #1baf7a, #eda100, #e87ba4, #6250d6, #e34948, #008300);
+$cv-chart-ink: $cv-muted-color;
+$cv-chart-grid: #ececec;
+$cv-chart-tooltip-bg: #2e353e;
+
+// Domain types (cited links): base colour, badge text colour (AA on the tint).
+// Validated in this (stacking) order; "other" is the neutral fold.
+$cv-domain-types: (
+    own: ($cv-success, $cv-badge-success-text),
+    competitor: ($cv-danger, $cv-badge-danger-text),
+    ota: ($cv-warning, $cv-badge-warning-text),
+    review: (#0088cc, #005a87),
+    media: (#6250d6, #45389e),
+    chain: (#1baf7a, #0f6e4c),
+    social: (#e87ba4, #9b1f5e),
+    other: ($cv-neutral, $cv-badge-neutral-text),
+);
+
+// Shadows and overlays.
+$cv-shadow-pagebar: 0 1px 2px rgba(0, 0, 0, .25);
+$cv-shadow-dropdown: 0 6px 18px rgba(0, 0, 0, .18);
+$cv-shadow-flyout: 4px 4px 14px rgba(0, 0, 0, .35);
+$cv-shadow-drawer: 6px 0 24px rgba(0, 0, 0, .4);
+$cv-backdrop-bg: rgba(0, 0, 0, .5);
+$cv-swatch-border: rgba(0, 0, 0, .08);
+
+// -- Breakpoint where the sidebar becomes an off-canvas drawer ----------------
+$cv-sidebar-breakpoint: lg;
+
+// =============================================================================
+// Bootstrap overrides (must come before bootstrap is imported)
+// =============================================================================
+$primary: $cv-primary-strong;
+$success: $cv-success-strong;
+$warning: $cv-warning;
+$danger: $cv-danger-strong;
+$info: $cv-info;
+$min-contrast-ratio: 4.5;
+
+$font-family-sans-serif: $cv-font-family;
+$font-size-base: .8125rem; // 13px
+$font-size-sm: .75rem;
+$line-height-base: $cv-line-height;
+$body-color: $cv-body-color;
+// Bootstrap paints inputs, dropdowns, tables and accordions with the body
+// background, so it stays white; the grey content area is set on .cv-app.
+$body-bg: #fff;
+$headings-color: $cv-heading-color;
+$headings-font-weight: 400;
+$text-muted: $cv-muted-color;
+$secondary-color: $cv-muted-color;
+$link-color: $cv-link-color;
+
+$border-radius: $cv-card-radius;
+$border-radius-sm: 3px;
+$border-radius-lg: 6px;
+$border-color: $cv-card-border-color;
+
+$card-border-radius: $cv-card-radius;
+$card-border-color: transparent;
+$card-cap-bg: $cv-card-header-bg;
+$card-cap-padding-y: $cv-card-padding;
+$card-cap-padding-x: $cv-card-padding + 3px;
+$card-spacer-x: $cv-card-padding + 3px;
+$card-spacer-y: $cv-card-padding + 3px;
+$card-box-shadow: none;
+
+$btn-font-size: $font-size-base;
+$btn-padding-y: .4rem;
+$btn-padding-x: .85rem;
+$input-font-size: $font-size-base;
+$input-btn-focus-color: rgba($cv-primary, .35);
+$form-label-font-weight: 600;
+
+$table-cell-padding-y: .6rem;
+$table-cell-padding-x: .75rem;
+$table-th-font-weight: 600;
+$table-striped-bg: #f7f7f8;
+
+$progress-height: 6px;
+$progress-border-radius: 3px;
+$progress-bg: #e9eaed;
+
+$dropdown-font-size: $font-size-base;
+$dropdown-border-color: $cv-card-border-color;
+$dropdown-link-active-bg: $cv-primary-strong;
+
+$breadcrumb-font-size: $cv-font-size-sm;
+$breadcrumb-divider: quote(">");
+
+$badge-font-weight: 600;
+$badge-border-radius: 3px;
+$badge-padding-y: .35em;
+$badge-padding-x: .6em;
+
+$accordion-border-color: $cv-card-border-color;
+$accordion-button-active-bg: #f3f8fc;
+$accordion-button-active-color: $cv-heading-color;
+$accordion-button-padding-y: .85rem;
+
+$enable-shadows: false;
+$enable-negative-margins: true;
+
+// -- Wizard and form widgets ---------------------------------------------------
+$cv-stepper-circle: 34px;
+$cv-select-list-height: 260px;
+
+// -- Dashboard -------------------------------------------------------------------
+$cv-mark-own-bg: #ffe08a;          // the hotel's own name in answers
+$cv-mark-competitor-bg: #e3eefc;   // competitors' names (lighter)

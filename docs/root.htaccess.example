@@ -1,0 +1,27 @@
+# CiteVanta: FALLBACK only, for hosts where the document root cannot point to
+# the public/ folder. Copy this file to the app's ROOT folder as ".htaccess".
+# Prefer a (sub)domain whose document root is the public/ folder instead
+# (see docs/DEPLOY.md, option A): then this file is not needed at all.
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Refuse private files in the root (.env, composer files, artisan, ...).
+    RewriteRule ^(\.env.*|\.git.*|\.htaccess|composer\.(json|lock)|artisan|package(-lock)?\.json|phpunit\.xml|vite\.config\.js|.*\.md)$ - [F,L,NC]
+
+    # 2. Refuse private folders. ("storage" is not listed on purpose: /storage/...
+    #    are public files and rule 3 sends them to public/storage, never to the
+    #    private storage/ folder.)
+    RewriteRule ^(app|bootstrap|config|database|docs|lang|node_modules|releases|resources|routes|tests|vendor)(/|$) - [F,L,NC]
+
+    # 3. Send everything else to public/ (public/.htaccess then starts Laravel).
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# 4. Belt and braces: never serve dot-files (.env, .git, ...).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>

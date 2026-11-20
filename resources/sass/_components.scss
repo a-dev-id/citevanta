@@ -1,0 +1,873 @@
+// =============================================================================
+// Reusable components: cards, summary widgets, badges, tables, empty states,
+// skeletons, accordion, scan banner.
+// =============================================================================
+
+// -- Cards --------------------------------------------------------------------
+.cv-card {
+    margin-bottom: $cv-card-gap;
+    background: $cv-card-bg;
+    border: 0;
+    border-radius: $cv-card-radius;
+
+    > .card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: $cv-card-header-bg;
+        border-bottom: 1px solid $cv-card-border-color;
+        border-radius: $cv-card-radius $cv-card-radius 0 0;
+    }
+
+    &.is-collapsed > .card-header {
+        border-bottom-color: transparent;
+        border-radius: $cv-card-radius;
+    }
+
+    > .card-footer {
+        background: $cv-card-footer-bg;
+        border-top: 1px solid $cv-card-border-color;
+    }
+}
+
+// Cards in the same .row get equal heights: a column that holds cards becomes a
+// flex column and its last card stretches to the tallest column in the row.
+// Vertical spacing between wrapped columns comes from the card margin, so rows
+// of cards use horizontal gutters only (.row.gx-3).
+.row > [class*="col"]:has(> .cv-card) {
+    display: flex;
+    flex-direction: column;
+
+    > .cv-card:last-child:not(.is-collapsed) {
+        flex-grow: 1;
+    }
+}
+
+// The stretched card's content fills it too, so the footer sits at the bottom.
+.cv-card__inner {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+
+    > .card-body {
+        flex: 1 1 auto;
+    }
+}
+
+.cv-card__title {
+    margin: 0;
+    color: $cv-heading-color;
+    font-size: $cv-card-title-size;
+    font-weight: $cv-card-title-weight;
+    line-height: 1.3;
+}
+
+.cv-card__subtitle {
+    margin: 2px 0 0;
+    color: $cv-muted-color;
+    font-size: $cv-font-size-sm;
+}
+
+.cv-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.cv-card__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: $cv-card-action-color;
+    font-size: 13px;
+
+    &:hover {
+        background: $cv-card-action-hover-bg;
+        color: $cv-heading-color;
+    }
+
+    i {
+        transition: transform $cv-transition;
+    }
+}
+
+.cv-card.is-collapsed .cv-card__action--collapse i {
+    transform: rotate(-90deg);
+}
+
+// Table flush with the card edges.
+.cv-card__body--flush {
+    padding: 0;
+
+    > .table,
+    > .table-responsive > .table {
+        margin-bottom: 0;
+    }
+
+    .table > :not(caption) > * > *:first-child {
+        padding-left: $cv-card-padding + 3px;
+    }
+
+    .table > :not(caption) > * > *:last-child {
+        padding-right: $cv-card-padding + 3px;
+    }
+}
+
+// -- Summary widgets ----------------------------------------------------------
+.cv-widget {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 100%;
+}
+
+
+.cv-widget__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 $cv-widget-icon-size;
+    width: $cv-widget-icon-size;
+    height: $cv-widget-icon-size;
+    border-radius: 50%;
+    color: $cv-white;
+    font-size: 25px;
+}
+
+@each $name, $color in (primary: $cv-primary, success: $cv-success, warning: $cv-warning, danger: $cv-danger, info: $cv-info, dark: $cv-widget-dark) {
+    .cv-widget__icon--#{$name} {
+        background: $color;
+    }
+}
+
+.cv-widget__title {
+    margin: 0;
+    color: $cv-muted-color;
+    font-size: $cv-font-size-base;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.cv-widget__amount {
+    margin: 2px 0 2px;
+    color: $cv-heading-color;
+    font-size: $cv-widget-amount-size;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.cv-widget__change {
+    font-size: $cv-font-size-sm;
+    color: $cv-muted-color;
+
+    .is-up {
+        color: $cv-success-strong;
+        font-weight: 600;
+    }
+
+    .is-down {
+        color: $cv-danger;
+        font-weight: 600;
+    }
+}
+
+// -- Status badges (subtle background + dark text = AA contrast) ---------------
+.cv-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: .35em .65em;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+$cv-badge-variants: (
+    success: ($cv-success, $cv-badge-success-text),
+    warning: ($cv-warning, $cv-badge-warning-text),
+    danger: ($cv-danger, $cv-badge-danger-text),
+    info: ($cv-info, $cv-badge-info-text),
+    primary: ($cv-primary, $cv-badge-primary-text),
+    neutral: ($cv-neutral, $cv-badge-neutral-text),
+);
+
+@each $name, $pair in $cv-badge-variants {
+    $base: nth($pair, 1);
+    $text: nth($pair, 2);
+
+    .cv-badge--#{$name} {
+        background: rgba($base, $cv-badge-tint);
+        border-color: rgba($base, $cv-badge-border-tint);
+        color: $text;
+    }
+}
+
+// -- Tables -------------------------------------------------------------------
+.table {
+    font-size: $cv-font-size-base;
+
+    > thead th {
+        color: $cv-heading-color;
+        border-bottom-width: 1px;
+        white-space: nowrap;
+    }
+
+    td {
+        vertical-align: middle;
+    }
+
+    .is-highlighted > * {
+        background: $cv-row-highlight-bg !important;
+        font-weight: 600;
+        color: $cv-heading-color;
+    }
+
+    // Numeric columns (counts, percentages, money): mark the <th> and <td>
+    // with .cv-num. Right-aligned with equal-width digits so values line up.
+    > :not(caption) > * > .cv-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .cv-num .cv-progress-cell {
+        margin-left: auto;
+    }
+}
+
+.cv-progress-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 140px;
+
+    .progress {
+        flex: 1 1 auto;
+    }
+
+    span {
+        min-width: 42px;
+        text-align: right;
+        font-weight: 600;
+        color: $cv-heading-color;
+    }
+}
+
+.progress-bar {
+    background-color: $cv-primary;
+}
+
+// -- Empty state --------------------------------------------------------------
+.cv-empty {
+    padding: 36px 20px;
+    text-align: center;
+
+    .cv-empty__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 14px;
+        border-radius: 50%;
+        background: $cv-empty-icon-bg;
+        color: $cv-empty-icon-color;
+        font-size: 26px;
+    }
+
+    .cv-empty__text {
+        margin: 0 auto 16px;
+        max-width: 420px;
+        color: $cv-body-color;
+        font-size: 14px;
+    }
+}
+
+// -- Loading skeleton ---------------------------------------------------------
+.cv-skeleton {
+    display: block;
+    height: 12px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, $cv-skeleton-base 25%, $cv-skeleton-shine 37%, $cv-skeleton-base 63%);
+    background-size: 400% 100%;
+    animation: cv-skeleton 1.4s ease infinite;
+
+    &.cv-skeleton--title {
+        height: 18px;
+        width: 40%;
+    }
+
+    &.cv-skeleton--circle {
+        width: $cv-widget-icon-size;
+        height: $cv-widget-icon-size;
+        border-radius: 50%;
+        margin: 0;
+    }
+}
+
+@keyframes cv-skeleton {
+    0% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0 50%;
+    }
+}
+
+// -- Scan running banner --------------------------------------------------------
+.cv-scan-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: $cv-card-gap;
+    padding: 12px 18px;
+    border-left: 4px solid $cv-primary;
+    border-radius: $cv-card-radius;
+    background: $cv-white;
+    color: $cv-heading-color;
+}
+
+// -- Accordion inside cards ---------------------------------------------------
+.cv-card .accordion-flush .accordion-button {
+    gap: 12px;
+    font-size: $cv-font-size-base;
+    color: $cv-heading-color;
+}
+
+.accordion-button:not(.collapsed) {
+    box-shadow: inset 3px 0 0 $cv-primary;
+}
+
+.cv-answer {
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    border: 1px solid $cv-answer-border;
+    border-radius: $cv-card-radius;
+    background: $cv-answer-bg;
+    white-space: pre-line;
+
+    mark {
+        padding: 0 2px;
+        background: $cv-mark-bg;
+        color: inherit;
+        font-weight: 600;
+    }
+}
+
+// -- Misc -----------------------------------------------------------------------
+.cv-chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    border: 1px dashed $cv-placeholder-border;
+    border-radius: $cv-card-radius;
+    color: $cv-muted-color;
+    font-size: $cv-font-size-sm;
+}
+
+.cv-swatch {
+    display: inline-block;
+    width: 100%;
+    height: 44px;
+    border-radius: $cv-card-radius;
+    border: 1px solid $cv-swatch-border;
+}
+
+.btn {
+    font-weight: 600;
+}
+
+// -- Searchable select (x-searchable-select) ------------------------------------
+[x-cloak] {
+    display: none !important;
+}
+
+.cv-select__list {
+    position: absolute;
+    z-index: 1050;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    max-height: $cv-select-list-height;
+    margin: 0;
+    padding: 4px 0;
+    overflow-y: auto;
+    list-style: none;
+    background: $cv-white;
+    border: 1px solid $cv-card-border-color;
+    border-radius: $cv-card-radius;
+    box-shadow: $cv-shadow-dropdown;
+}
+
+.cv-select__option {
+    padding: 6px 12px;
+    cursor: pointer;
+
+    &[data-active="true"] {
+        background: $cv-row-highlight-bg;
+        color: $cv-heading-color;
+    }
+
+    &[aria-selected="true"] {
+        font-weight: 600;
+    }
+}
+
+.cv-select__empty {
+    padding: 6px 12px;
+    color: $cv-muted-color;
+}
+
+.cv-select__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
+    border: 1px solid rgba($cv-primary, $cv-badge-border-tint);
+    border-radius: 3px;
+    background: rgba($cv-primary, $cv-badge-tint);
+    color: $cv-badge-primary-text;
+    font-weight: 600;
+}
+
+.cv-select__chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+
+    &:hover {
+        background: rgba($cv-primary, $cv-badge-border-tint);
+    }
+}
+
+// -- Wizard stepper: numbered circles joined by a line -------------------------
+.cv-stepper {
+    display: flex;
+    margin: 0 0 $cv-card-gap;
+    padding: 18px 10px 14px;
+    list-style: none;
+    background: $cv-white;
+    border-radius: $cv-card-radius;
+}
+
+.cv-stepper__step {
+    position: relative;
+    flex: 1 1 0;
+    text-align: center;
+
+    // Connector line to the previous step.
+    &:not(:first-child)::before {
+        content: "";
+        position: absolute;
+        top: calc(#{$cv-stepper-circle} / 2 - 1px);
+        right: 50%;
+        left: -50%;
+        height: 3px;
+        background: $cv-step-border;
+    }
+
+    &.is-done::before,
+    &.is-current::before {
+        background: $cv-primary;
+    }
+}
+
+.cv-stepper__button {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: $cv-muted-color;
+    font-size: $cv-font-size-sm;
+    font-weight: 600;
+
+    &:disabled {
+        cursor: default;
+    }
+}
+
+.cv-stepper__circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $cv-stepper-circle;
+    height: $cv-stepper-circle;
+    border: 3px solid $cv-step-border;
+    border-radius: 50%;
+    background: $cv-white;
+    color: $cv-muted-color;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.cv-stepper__step.is-done {
+    .cv-stepper__circle {
+        border-color: $cv-primary;
+        background: $cv-primary;
+        color: $cv-white;
+    }
+
+    .cv-stepper__button {
+        color: $cv-heading-color;
+    }
+}
+
+.cv-stepper__step.is-current {
+    .cv-stepper__circle {
+        border-color: $cv-primary;
+        color: $cv-primary-strong;
+        box-shadow: 0 0 0 4px rgba($cv-primary, .18);
+    }
+
+    .cv-stepper__button {
+        color: $cv-heading-color;
+    }
+}
+
+@include media-breakpoint-down(sm) {
+    .cv-stepper__label {
+        display: none;
+    }
+}
+
+// -- Editable tables (prompts, competitors, facts) -----------------------------
+.cv-edit-table {
+    td {
+        vertical-align: top;
+    }
+
+    .form-control,
+    .form-select {
+        font-size: $cv-font-size-base;
+    }
+
+    .cv-group-row > th {
+        background: $cv-card-header-bg;
+        color: $cv-heading-color;
+        font-size: $cv-font-size-sm;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+}
+
+.cv-usage {
+    font-size: $cv-font-size-sm;
+    font-weight: 600;
+    color: $cv-muted-color;
+
+    &.is-full {
+        color: $cv-badge-warning-text;
+    }
+}
+
+// -- Dashboard -------------------------------------------------------------------
+.cv-answer {
+    mark.cv-mark-own {
+        background: $cv-mark-own-bg;
+        font-weight: 700;
+    }
+
+    mark.cv-mark-competitor {
+        background: $cv-mark-competitor-bg;
+        font-weight: 600;
+    }
+}
+
+.cv-engine-filter .nav-link {
+    padding: .35rem .9rem;
+    border: 1px solid $cv-card-border-color;
+    background: $cv-white;
+    color: $cv-body-color;
+    font-weight: 600;
+
+    &.active {
+        border-color: $cv-primary-strong;
+        background: $cv-primary-strong;
+        color: $cv-white;
+    }
+}
+
+.cv-engine-filter .nav {
+    gap: 6px;
+}
+
+// -- Domain types (cited links) --------------------------------------------------
+@each $name, $pair in $cv-domain-types {
+    $base: nth($pair, 1);
+    $text: nth($pair, 2);
+
+    .cv-badge.cv-domain--#{$name} {
+        background: rgba($base, $cv-badge-tint);
+        border-color: rgba($base, $cv-badge-border-tint);
+        color: $text;
+    }
+
+    .cv-domain-dot.cv-domain--#{$name},
+    .progress-bar.cv-domain--#{$name} {
+        background-color: $base;
+    }
+}
+
+.cv-domain-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: baseline;
+}
+
+// Small "?" next to a column header; explained in a tooltip.
+.cv-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    padding: 0;
+    border: 1px solid $cv-neutral;
+    border-radius: 50%;
+    background: transparent;
+    color: $cv-badge-neutral-text;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: text-top;
+    cursor: help;
+
+    &:hover,
+    &:focus-visible {
+        border-color: $cv-primary-strong;
+        color: $cv-primary-strong;
+    }
+}
+
+.cv-tooltip-wide {
+    --bs-tooltip-max-width: 340px;
+    --bs-tooltip-padding-x: .75rem;
+    --bs-tooltip-padding-y: .6rem;
+
+    .tooltip-inner {
+        text-align: left;
+    }
+}
+
+.cv-domain-help {
+    margin: 0;
+
+    dt {
+        font-weight: 700;
+    }
+
+    dd {
+        margin-bottom: .35rem;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+// -- Charts (Chart.js reads these variables; see resources/js/charts.js) --------
+:root {
+    @for $i from 1 through length($cv-chart-series) {
+        --cv-series-#{$i}: #{nth($cv-chart-series, $i)};
+    }
+
+    @each $name, $pair in $cv-domain-types {
+        --cv-domain-#{$name}: #{nth($pair, 1)};
+    }
+
+    --cv-chart-ink: #{$cv-chart-ink};
+    --cv-chart-grid: #{$cv-chart-grid};
+    --cv-chart-surface: #{$cv-white};
+    --cv-chart-tooltip-bg: #{$cv-chart-tooltip-bg};
+}
+
+.cv-chart {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.cv-chart-toggle .btn {
+    padding: .15rem .6rem;
+    font-size: $cv-font-size-sm;
+}
+
+// -- Accuracy issues ----------------------------------------------------------------
+.cv-issue {
+    padding: .75rem 1rem;
+
+    & + & {
+        border-top: 1px solid $cv-card-border-color;
+    }
+}
+
+.cv-issue--row {
+    padding-inline: 0;
+}
+
+.cv-issue-list > li + li {
+    border-top: 1px solid $cv-card-border-color;
+}
+
+.cv-issue__facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 12px;
+    font-size: $cv-font-size-sm;
+
+    dt {
+        color: $cv-muted-color;
+        font-weight: 600;
+    }
+
+    dd {
+        margin: 0;
+    }
+}
+
+.cv-issue__quote {
+    margin: .25rem 0 .4rem;
+    padding: .4rem .75rem;
+    border-left: 3px solid $cv-card-border-color;
+    color: $cv-body-color;
+    font-size: $cv-font-size-sm;
+    font-style: italic;
+}
+
+.cv-issue__dismiss {
+    max-width: 520px;
+}
+
+.cv-answer-block.is-targeted {
+    outline: 2px solid rgba($cv-primary, .45);
+    outline-offset: 6px;
+    border-radius: 2px;
+}
+
+// Admin > Scan runs: cost split by purpose under the total.
+.cv-cost-breakdown {
+    margin: 2px 0 0;
+    color: $cv-muted-color;
+    font-size: 11px;
+    white-space: nowrap;
+
+    div {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+
+    dt {
+        font-weight: 400;
+    }
+
+    dd {
+        margin: 0;
+    }
+}
+
+// -- Why competitors win ---------------------------------------------------------------
+.cv-why {
+    padding: .75rem 1rem;
+    border: 1px solid $cv-card-border-color;
+    border-left: 3px solid $cv-danger;
+    border-radius: 3px;
+    background: $cv-white;
+}
+
+.cv-why__title {
+    margin-bottom: .5rem;
+    color: $cv-heading-color;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.cv-why__reasons {
+    margin: 0 0 .5rem;
+    padding: 0;
+    list-style: none;
+    font-size: $cv-font-size-sm;
+
+    li {
+        padding: 4px 0;
+
+        & + li {
+            border-top: 1px dashed $cv-card-border-color;
+        }
+    }
+
+    .cv-badge {
+        margin-left: 4px;
+    }
+}
+
+// -- Recommendations ---------------------------------------------------------------
+.cv-quick-win {
+    display: block;
+    height: 100%;
+    padding: .65rem .8rem;
+    border: 1px solid $cv-card-border-color;
+    border-left: 3px solid $cv-success;
+    border-radius: 3px;
+    color: $cv-heading-color;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        border-color: $cv-primary;
+        color: $cv-heading-color;
+    }
+}
+
+.cv-measured {
+    padding: .5rem .75rem;
+    border-radius: 3px;
+    background: rgba($cv-primary, .06);
+}
+
+.cv-content-panel {
+    margin-top: .5rem;
+    padding: .75rem;
+    border: 1px solid $cv-card-border-color;
+    border-radius: 3px;
+    background: rgba($cv-neutral, .06);
+}
+
+.cv-content-text {
+    min-height: 220px;
+    line-height: 1.5;
+}
+
+.cv-language-bar {
+    border-bottom: 1px solid $cv-card-border-color;
+    background: rgba($cv-neutral, .05);
+}
