@@ -23,6 +23,7 @@ use App\Services\Trials\TrialGate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use RuntimeException;
@@ -151,7 +152,9 @@ class AdminController extends Controller
     public function system(SystemHealth $health, BudgetPanel $budget): View
     {
         return view('admin.system', [
-            'budget' => $budget->data(),
+            // Right after uploading a new release the new tables do not exist yet:
+            // this page must still load, so the deploy tasks can create them.
+            'budget' => Schema::hasTable('ai_usages') ? $budget->data() : null,
             'health' => $health->collect(),
             'cronLines' => $health->cronLines(),
             'warnings' => $health->productionWarnings(),

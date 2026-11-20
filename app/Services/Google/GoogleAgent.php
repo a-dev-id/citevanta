@@ -5,6 +5,7 @@ namespace App\Services\Google;
 use App\Mail\GoogleConnectionBroken;
 use App\Models\GoogleConnection;
 use App\Services\Budget\AdminMailer;
+use Illuminate\Database\QueryException;
 
 /**
  * The agent Google account (GOOGLE_AGENT_EMAIL), connected once by an admin
@@ -130,7 +131,12 @@ final class GoogleAgent
 
     public function isBroken(): bool
     {
-        $connection = $this->connection();
+        try {
+            $connection = $this->connection();
+        } catch (QueryException) {
+            // The table does not exist until the deploy tasks ran: nothing is broken yet.
+            return false;
+        }
 
         return $connection !== null && ! $connection->isWorking();
     }

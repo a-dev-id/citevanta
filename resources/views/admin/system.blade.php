@@ -7,6 +7,12 @@
 <x-layouts::app title="System" :breadcrumbs="['Admin' => null, 'System' => null]">
     <x-flash />
 
+    @if (! $budget)
+        <div class="alert alert-warning" role="alert">
+            <i class="fa-solid fa-database me-1" aria-hidden="true"></i>
+            <strong>Database updates are waiting.</strong> Click <strong>Run deploy tasks</strong> below; the AI budget panel appears afterwards.
+        </div>
+    @else
     @if ($budget['billing_stop'])
         <div class="alert alert-danger" role="alert">
             <p class="fw-semibold mb-1"><i class="fa-solid fa-circle-stop me-1" aria-hidden="true"></i> OpenAI credit or spend limit reached ({{ $budget['billing_stop']['code'] }}).</p>
@@ -70,6 +76,8 @@
             </table>
         </div>
     </x-card>
+
+    @endif
 
     @if ($warnings !== [])
         <div class="alert alert-danger" role="alert">
