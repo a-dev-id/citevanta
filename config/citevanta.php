@@ -158,7 +158,7 @@ return [
         'ga4_page_size' => 10000,
         'gsc_page_size' => 25000,
         // Requests per minute to Google APIs from our jobs (well under Google's quotas).
-        'requests_per_minute' => 30,
+        'requests_per_minute' => (int) env('GOOGLE_REQUESTS_PER_MINUTE', 30),
     ],
 
     /*
@@ -203,6 +203,50 @@ return [
         'adults' => ['adults', 'num_adults', 'adult', 'adult_count', 'guests_adults'],
         'children' => ['children', 'num_children', 'kids', 'child', 'child_count'],
         'nights' => ['nights', 'num_nights', 'length_of_stay', 'los', 'stay_length'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reports (Private plan: GA4 and Search Console, from our own synced tables)
+    |--------------------------------------------------------------------------
+    */
+
+    'reports' => [
+        // Date range picker: key => days.
+        'ranges' => ['28d' => 28, '90d' => 90, '12m' => 365],
+        // Low-CTR opportunities: enough impressions, a click rate below this, ranking better than this position.
+        'opportunity_min_impressions' => (int) env('REPORT_OPPORTUNITY_MIN_IMPRESSIONS', 100),
+        'opportunity_max_ctr' => 0.03,
+        'opportunity_max_position' => 15,
+        // Seasonal query groups: a query joins every group that has one of its words (lowercase).
+        'seasonal_groups' => [
+            'Christmas' => ['christmas', 'xmas', 'natal'],
+            'New Year' => ['new year', 'nye', 'tahun baru'],
+            'Easter' => ['easter', 'paskah'],
+            'Nyepi' => ['nyepi'],
+            'Ramadan and Eid' => ['ramadan', 'ramadhan', 'eid', 'lebaran', 'idul fitri'],
+            'School holidays' => ['school holiday', 'school holidays', 'liburan sekolah'],
+            'Summer' => ['summer', 'july', 'august'],
+            'Months' => ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Direct Rates Page (Private plan)
+    |--------------------------------------------------------------------------
+    */
+
+    'rates' => [
+        // The owner's calendar warns when no rate was entered or changed for this many days.
+        'stale_days' => (int) env('RATES_STALE_DAYS', 14),
+        // Longest range one bulk fill may cover, and how far ahead a public date page is shown.
+        'max_fill_days' => 366,
+        'max_ahead_days' => 540,
+        'max_nights' => 30,
+        'cache_minutes' => 1440,
+        'utm_source' => 'citevanta',
+        'utm_medium' => 'rates-page',
     ],
 
     /*

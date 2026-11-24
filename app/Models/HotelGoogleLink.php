@@ -24,12 +24,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $health_checked_at
  * @property CarbonInterface|null $first_synced_at
  * @property CarbonInterface|null $last_synced_at
+ * @property CarbonInterface|null $booking_dates_synced_at
  * @property string|null $last_sync_error
  * @property-read Hotel $hotel
  */
 #[Fillable([
     'hotel_id', 'team_id', 'ga4_property', 'ga4_property_name', 'ga4_currency', 'ga4_timezone', 'gsc_site',
-    'date_mapping', 'health', 'health_checked_at', 'first_synced_at', 'last_synced_at', 'last_sync_error',
+    'date_mapping', 'health', 'health_checked_at', 'first_synced_at', 'last_synced_at', 'booking_dates_synced_at', 'last_sync_error',
 ])]
 class HotelGoogleLink extends Model
 {
@@ -53,6 +54,7 @@ class HotelGoogleLink extends Model
             'health_checked_at' => 'datetime',
             'first_synced_at' => 'datetime',
             'last_synced_at' => 'datetime',
+            'booking_dates_synced_at' => 'datetime',
         ];
     }
 }

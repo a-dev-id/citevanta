@@ -84,42 +84,55 @@ final class FakeGoogleApi implements GoogleApi
         $days = in_array('date', $dimensions, true) ? $this->days($range['startDate'], $range['endDate']) : ['all'];
         $hosts = array_values(array_filter([Url::host((string) $hotel?->website), $hotel?->booking_engine_domain]));
         $eventFilter = $body['dimensionFilter']['filter']['stringFilter']['value'] ?? null;
+        $eventList = $body['dimensionFilter']['filter']['inListFilter']['values'] ?? null;
+        $hasCustom = count(array_filter($dimensions, fn ($name) => str_starts_with($name, 'customEvent:'))) > 0;
 
         $rows = [];
         foreach ($days as $d => $day) {
             foreach (in_array('sessionSource', $dimensions, true) ? self::SOURCES : [[null, null]] as $s => [$source, $medium]) {
                 foreach (in_array('eventName', $dimensions, true) ? self::EVENTS : [null] as $event) {
                     foreach (in_array('hostName', $dimensions, true) ? ($hosts ?: ['example.com']) : [null] as $host) {
-                        if ($eventFilter !== null && $event !== null && $event !== $eventFilter) {
-                            continue;
+                        foreach ($hasCustom ? [0, 1, 2] : [0] as $variant) {
+                            if ($eventFilter !== null && $event !== null && $event !== $eventFilter) {
+                                continue;
+                            }
+
+                            if ($eventList !== null && $event !== null && ! in_array($event, $eventList, true)) {
+                                continue;
+                            }
+
+                            $seed = crc32($property.$day.$source.$event.$host.$variant);
+                            $values = [
+                                'date' => $day === 'all' ? null : str_replace('-', '', $day),
+                                'sessionSource' => $source, 'sessionMedium' => $medium,
+                                'country' => self::COUNTRIES[($d + $s) % count(self::COUNTRIES)],
+                                'landingPage' => self::PAGES[($d + $s) % count(self::PAGES)],
+                                'deviceCategory' => self::DEVICES[$s % count(self::DEVICES)],
+                                'eventName' => $event, 'hostName' => $host,
+                            ];
+                            foreach ($dimensions as $name) {
+                                if (str_starts_with($name, 'customEvent:')) {
+                                    $values[$name] = $this->customValue(substr($name, 12), $day, $seed);
+                                }
+                            }
+                            $sessions = 3 + $seed % 40;
+                            $purchases = match (true) {
+                                $source === null && $event === null => 1 + $seed % 3,
+                                $eventFilter === 'purchase' || $event === 'purchase' || $source === 'chatgpt.com' || $source === 'google' => $seed % 3,
+                                default => 0,
+                            };
+                            $metricValues = [
+                                'sessions' => $sessions, 'totalUsers' => $sessions - 1, 'activeUsers' => $sessions - 1,
+                                'engagedSessions' => intdiv($sessions * 2, 3), 'keyEvents' => $purchases,
+                                'ecommercePurchases' => $purchases, 'purchaseRevenue' => $purchases * 2500000,
+                                'eventCount' => $sessions * 2, 'eventValue' => $purchases * 2500000,
+                            ];
+
+                            $rows[] = [
+                                'dimensionValues' => array_map(fn ($name) => ['value' => (string) ($values[$name] ?? '(not set)')], $dimensions),
+                                'metricValues' => array_map(fn ($name) => ['value' => (string) ($metricValues[$name] ?? 0)], $metrics),
+                            ];
                         }
-
-                        $seed = crc32($property.$day.$source.$event.$host);
-                        $values = [
-                            'date' => $day === 'all' ? null : str_replace('-', '', $day),
-                            'sessionSource' => $source, 'sessionMedium' => $medium,
-                            'country' => self::COUNTRIES[($d + $s) % count(self::COUNTRIES)],
-                            'landingPage' => self::PAGES[($d + $s) % count(self::PAGES)],
-                            'deviceCategory' => self::DEVICES[$s % count(self::DEVICES)],
-                            'eventName' => $event, 'hostName' => $host,
-                        ];
-                        $sessions = 3 + $seed % 40;
-                        $purchases = match (true) {
-                            $source === null && $event === null => 1 + $seed % 3,
-                            $eventFilter === 'purchase' || $event === 'purchase' || $source === 'chatgpt.com' || $source === 'google' => $seed % 3,
-                            default => 0,
-                        };
-                        $metricValues = [
-                            'sessions' => $sessions, 'totalUsers' => $sessions - 1, 'activeUsers' => $sessions - 1,
-                            'engagedSessions' => intdiv($sessions * 2, 3), 'keyEvents' => $purchases,
-                            'ecommercePurchases' => $purchases, 'purchaseRevenue' => $purchases * 2500000,
-                            'eventCount' => $sessions * 2, 'eventValue' => $purchases * 2500000,
-                        ];
-
-                        $rows[] = [
-                            'dimensionValues' => array_map(fn ($name) => ['value' => (string) ($values[$name] ?? '(not set)')], $dimensions),
-                            'metricValues' => array_map(fn ($name) => ['value' => (string) ($metricValues[$name] ?? 0)], $metrics),
-                        ];
                     }
                 }
             }
@@ -135,6 +148,25 @@ final class FakeGoogleApi implements GoogleApi
             'rowCount' => count($rows),
             'propertyQuota' => ['tokensPerHour' => ['consumed' => 5, 'remaining' => 39995]],
         ];
+    }
+
+    /**
+     * Stay dates for a custom event dimension: check-in 1 to 12 weeks after the day, 1 to 6 nights.
+     */
+    private function customValue(string $parameter, string $day, int $seed): string
+    {
+        $field = array_search($parameter, GoogleHealth::detectMapping([$parameter]), true);
+        $stay = 1 + $seed % 6;
+        $checkin = Carbon::parse($day === 'all' ? 'today' : $day)->addDays(7 + intdiv($seed, 7) % 80);
+
+        return match ($field) {
+            'checkin' => $checkin->toDateString(),
+            'checkout' => $checkin->addDays($stay)->toDateString(),
+            'nights' => (string) $stay,
+            'adults' => (string) (1 + $seed % 3),
+            'children' => (string) ($seed % 3),
+            default => '(not set)',
+        };
     }
 
     public function sites(): array
@@ -189,11 +221,12 @@ final class FakeGoogleApi implements GoogleApi
      */
     private function days(string $start, string $end): array
     {
-        $from = $this->date($start);
         $to = $this->date($end);
+        // Fake data covers the most recent 120 days of any range, so recent reports are never empty.
+        $from = $this->date($start)->max($to->copy()->subDays(119));
         $days = [];
 
-        for ($day = $from; $day->lte($to) && count($days) < 120; $day = $day->addDay()) {
+        for ($day = $from->copy(); $day->lte($to); $day = $day->addDay()) {
             $days[] = $day->toDateString();
         }
 

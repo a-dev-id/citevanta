@@ -32,6 +32,8 @@ class HotelController extends Controller
         'citations' => 'hotels.citations',
         'accuracy' => 'hotels.accuracy',
         'recommendations' => 'hotels.recommendations',
+        'reports' => 'hotels.reports',
+        'rates' => 'hotels.rates',
     ];
 
     public function __construct(private CurrentHotel $currentHotel) {}

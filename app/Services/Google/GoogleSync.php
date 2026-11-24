@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
  *  - ga4_traffic: date x sessionSource x sessionMedium x country x landingPage x deviceCategory
  *    with sessions, totalUsers, engagedSessions, keyEvents, ecommercePurchases, purchaseRevenue
  *  - ga4_events: date x eventName with eventCount, eventValue
+ *  - ga4_booking_dates: date x event x check-in (x check-out or nights), only when the booking date
+ *    fields are mapped (the first time: 13 months, later the daily window)
  *  - gsc_day: one day of Search Console by query, page, country, device
  *
  * First sync: GA4 for the last 13 months, Search Console for 16 months (one job
@@ -27,6 +29,11 @@ final class GoogleSync
     public const GA4_EVENTS = 'ga4_events';
 
     public const GSC_DAY = 'gsc_day';
+
+    public const GA4_BOOKING_DATES = 'ga4_booking_dates';
+
+    /** Events that carry the stay dates a guest looked at, started or booked. */
+    public const BOOKING_EVENTS = ['view_item', 'begin_checkout', 'purchase'];
 
     private const TRAFFIC_DIMENSIONS = ['date', 'sessionSource', 'sessionMedium', 'country', 'landingPage', 'deviceCategory'];
 
@@ -54,6 +61,18 @@ final class GoogleSync
                 GoogleSyncJob::dispatch($link->id, $type, $from->toDateString(), $yesterday->toDateString());
                 $jobs++;
             }
+        }
+
+        $mapping = (array) ($link->date_mapping ?? []);
+        if ($link->ga4_property !== null && ! empty($mapping['checkin'])) {
+            // Mapped after the first sync (the health check detects it later): backfill once.
+            $from = $link->booking_dates_synced_at === null
+                ? $yesterday->copy()->subMonthsNoOverflow((int) config('citevanta.google.ga4_first_sync_months', 13))
+                : $yesterday->copy()->subDays((int) config('citevanta.google.ga4_daily_days', 3) - 1);
+
+            GoogleSyncJob::dispatch($link->id, self::GA4_BOOKING_DATES, $from->toDateString(), $yesterday->toDateString());
+            $jobs++;
+            $link->booking_dates_synced_at = now();
         }
 
         if ($link->gsc_site !== null) {
@@ -84,6 +103,7 @@ final class GoogleSync
         $next = match ($type) {
             self::GA4_TRAFFIC => $this->ga4Traffic($link, $from, $to, $offset),
             self::GA4_EVENTS => $this->ga4Events($link, $from, $to, $offset),
+            self::GA4_BOOKING_DATES => $this->ga4BookingDates($link, $from, $to, $offset),
             self::GSC_DAY => $this->gscDay($link, $from, $offset),
             default => null,
         };
@@ -162,6 +182,78 @@ final class GoogleSync
         }
 
         return $offset + $limit < (int) ($data['rowCount'] ?? 0) ? $offset + $limit : null;
+    }
+
+    private function ga4BookingDates(HotelGoogleLink $link, string $from, string $to, int $offset): ?int
+    {
+        $mapping = (array) ($link->date_mapping ?? []);
+
+        if (empty($mapping['checkin'])) {
+            return null;
+        }
+
+        $stay = ! empty($mapping['checkout']) ? $mapping['checkout'] : ($mapping['nights'] ?? null);
+        $dimensions = array_values(array_filter(['date', 'eventName', 'customEvent:'.$mapping['checkin'], $stay ? 'customEvent:'.$stay : null]));
+        $limit = (int) config('citevanta.google.ga4_page_size', 10000);
+        $data = $this->api->runReport((string) $link->ga4_property, [
+            'dateRanges' => [['startDate' => $from, 'endDate' => $to]],
+            'dimensions' => array_map(fn ($name) => ['name' => $name], $dimensions),
+            'metrics' => [['name' => 'eventCount']],
+            'dimensionFilter' => ['filter' => ['fieldName' => 'eventName', 'inListFilter' => ['values' => self::BOOKING_EVENTS]]],
+            'limit' => (string) $limit,
+            'offset' => (string) $offset,
+            'returnPropertyQuota' => true,
+        ]);
+
+        if ($offset === 0) {
+            DB::table('ga4_booking_dates_daily')->where('hotel_id', $link->hotel_id)->whereBetween('date', [$from, $to])->delete();
+        }
+
+        $rows = [];
+        foreach ((array) ($data['rows'] ?? []) as $row) {
+            $values = array_map(fn ($v) => (string) ($v['value'] ?? ''), $row['dimensionValues']);
+            $checkin = self::validDate($values[2] ?? '');
+
+            if ($checkin === null) {
+                continue;
+            }
+
+            $checkout = ! empty($mapping['checkout']) ? self::validDate($values[3] ?? '') : null;
+            $nights = match (true) {
+                $checkout !== null => (int) Carbon::parse($checkin)->diffInDays(Carbon::parse($checkout)),
+                empty($mapping['checkout']) && isset($values[3]) && ctype_digit($values[3]) => (int) $values[3],
+                default => null,
+            };
+            $nights = $nights !== null && $nights >= 1 && $nights <= 90 ? $nights : null;
+            $date = self::date($values[0]);
+            $key = sha1(implode('|', [$date, $values[1], $checkin, $checkout, $nights]));
+
+            $rows[$key] = [
+                'hotel_id' => $link->hotel_id, 'date' => $date, 'row_key' => $key, 'event_name' => mb_substr($values[1], 0, 60),
+                'checkin' => $checkin, 'checkout' => $checkout, 'nights' => $nights,
+                'events' => ($rows[$key]['events'] ?? 0) + (int) ($row['metricValues'][0]['value'] ?? 0),
+            ];
+        }
+
+        foreach (array_chunk(array_values($rows), 500) as $chunk) {
+            DB::table('ga4_booking_dates_daily')->upsert($chunk, ['hotel_id', 'row_key'], ['events']);
+        }
+
+        return $offset + $limit < (int) ($data['rowCount'] ?? 0) ? $offset + $limit : null;
+    }
+
+    /** "2026-12-24" or "20261224" as Y-m-d, or null when it is not a real date ("(not set)", junk). */
+    private static function validDate(string $value): ?string
+    {
+        $value = self::date(trim($value));
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        [$year, $month, $day] = array_map('intval', explode('-', $value));
+
+        return checkdate($month, $day, $year) && $year >= 2000 ? $value : null;
     }
 
     private function gscDay(HotelGoogleLink $link, string $day, int $offset): ?int

@@ -7,6 +7,8 @@
     'group' => 'all',
     'label',
     'height' => 240,
+    // Heading of the first column of the screen-reader table.
+    'column' => 'Scan',
 ])
 
 @php
@@ -25,7 +27,7 @@
     <caption>{{ $label }}</caption>
     <thead>
         <tr>
-            <th scope="col">Scan</th>
+            <th scope="col">{{ $column }}</th>
             @foreach ($chart['series'] as $series)
                 <th scope="col">{{ $series['label'] }}</th>
             @endforeach

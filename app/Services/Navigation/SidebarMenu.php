@@ -38,7 +38,10 @@ final class SidebarMenu
                     $this->item('insights.accuracy', 'Accuracy', 'fa-spell-check', route: 'accuracy.index', activeOn: ['accuracy.*', 'hotels.accuracy']),
                 ]),
                 $this->item('recommendations', 'Recommendations', 'fa-lightbulb', route: 'recommendations.index', activeOn: ['recommendations.*', 'hotels.recommendations']),
-                $this->item('reports', 'Reports', 'fa-file-lines', badge: 'Soon'),
+                ...($user?->currentTeam?->isPrivate() ? [
+                    $this->item('reports', 'Reports', 'fa-file-lines', route: 'reports.index', activeOn: ['reports.*', 'hotels.reports*']),
+                    $this->item('direct-rates', 'Direct rates', 'fa-tags', route: 'direct-rates.index', activeOn: ['direct-rates.*', 'hotels.rates']),
+                ] : []),
                 $this->group('settings', 'Settings', 'fa-gear', [
                     $this->item('settings.team', 'Team', 'fa-users', route: 'settings.team', activeOn: 'settings.team'),
                     $this->item('settings.profile', 'Profile', 'fa-user', route: 'settings.profile', activeOn: 'settings.profile'),

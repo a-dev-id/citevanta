@@ -28,7 +28,7 @@ class LayoutTest extends TestCase
             ->assertSee('data-cv-sidebar-toggle', false)
             ->assertSee('cv-page-header', false)
             ->assertSee('aria-label="Breadcrumb"', false)
-            ->assertSeeInOrder(['Navigation', 'Dashboard', 'Hotels', 'Prompts', 'Competitors', 'Scans', 'Citations', 'Recommendations', 'Reports', 'Settings', 'Admin', 'Teams', 'Failed jobs'])
+            ->assertSeeInOrder(['Navigation', 'Dashboard', 'Hotels', 'Prompts', 'Competitors', 'Scans', 'Citations', 'Recommendations', 'Settings', 'Admin', 'Teams', 'Failed jobs'])
             ->assertSee('Switch hotel')
             ->assertSee('cv-widget', false)
             ->assertSee('cv-empty', false)

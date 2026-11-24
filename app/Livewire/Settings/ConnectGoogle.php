@@ -119,7 +119,11 @@ class ConnectGoogle extends Component
         $link = $this->hotel()->googleLink;
         abort_if($link === null, 404);
 
-        $link->update(['date_mapping' => array_map(fn ($v) => $v !== '' ? $v : null, $this->mapping) + ['confirmed' => true]]);
+        $mapping = array_map(fn ($v) => $v !== '' ? $v : null, $this->mapping);
+        $old = (array) ($link->date_mapping ?? []);
+        // A changed mapping means different data: the next sync reads the booking dates again from the start.
+        $changed = ($old['checkin'] ?? null) !== $mapping['checkin'] || ($old['checkout'] ?? null) !== $mapping['checkout'] || ($old['nights'] ?? null) !== $mapping['nights'];
+        $link->update(['date_mapping' => $mapping + ['confirmed' => true]] + ($changed ? ['booking_dates_synced_at' => null] : []));
         GoogleHealthJob::dispatch($link->id, 'booking_dates');
         $this->notice = 'Booking date mapping saved.';
     }
