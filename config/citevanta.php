@@ -29,7 +29,7 @@ return [
     | brand_color: theme colour of the web app manifest (the Sass $cv-primary).
     */
 
-    'version' => '1.7.1',
+    'version' => '1.8.0',
 
     'build_date' => '2026-11-24',
 
