@@ -37,27 +37,21 @@ return [
 
     /*
     | Google (GA4 Data API v1beta, GA4 Admin API v1beta, Search Console API
-    | webmasters/v3) through one "agent" Google account that hotels share
-    | access with. Read-only scopes, plus openid and email to check which
-    | account signed in. Without a client id the app uses FakeGoogleApi
-    | (local development and tests).
+    | webmasters/v3) through one service account that hotels share access
+    | with (read-only scopes). The key file path comes from .env. Without a
+    | path the app uses FakeGoogleApi (local development and tests).
     */
     'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'agent_email' => env('GOOGLE_AGENT_EMAIL'),
-        'fake' => (bool) env('GOOGLE_FAKE', env('GOOGLE_CLIENT_ID') === null || env('GOOGLE_CLIENT_ID') === ''),
-        // openid + email: to check that the agent account (not another one) signed in.
+        // The service account key file (JSON). Absolute, or relative to storage_path(). Empty = fake data.
+        'service_account_json_path' => env('GOOGLE_SERVICE_ACCOUNT_JSON_PATH'),
+        'fake' => (bool) env('GOOGLE_FAKE', blank(env('GOOGLE_SERVICE_ACCOUNT_JSON_PATH'))),
         'scopes' => [
-            'openid',
-            'email',
             'https://www.googleapis.com/auth/analytics.readonly',
             'https://www.googleapis.com/auth/webmasters.readonly',
         ],
-        'auth_url' => 'https://accounts.google.com/o/oauth2/v2/auth',
         'token_url' => 'https://oauth2.googleapis.com/token',
-        'revoke_url' => 'https://oauth2.googleapis.com/revoke',
-        'userinfo_url' => 'https://openidconnect.googleapis.com/v1/userinfo',
+        // The access token is kept for about this long (Google issues it for 60 minutes).
+        'token_cache_minutes' => 50,
         'analytics_data_url' => 'https://analyticsdata.googleapis.com/v1beta',
         'analytics_admin_url' => 'https://analyticsadmin.googleapis.com/v1beta',
         'search_console_url' => 'https://www.googleapis.com/webmasters/v3',

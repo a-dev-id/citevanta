@@ -35,6 +35,8 @@ class ReleasePackagerTest extends TestCase
             ['bootstrap/cache/packages.php'], ['public/hot'], ['public/storage/x.jpg'], ['.claude/settings.json'],
             ['CLAUDE.md'], ['.mcp.json'], ['releases/citevanta-old.zip'], ['database/database.sqlite'],
             ['setup.log'], ['install.log'], ['check-env.php'], ['check_db.php'], ['cost-probe.php'], ['scan-probe.php'],
+            // A Google service account key never goes into a release, wherever it is.
+            ['citevanta-google.json'], ['service-account.json'], ['config/service_account_key.json'], ['credentials.json'], ['storage/app/private/google/citevanta-google.json'], ['google-key.json'],
         ];
     }
 
@@ -135,6 +137,16 @@ class ReleasePackagerTest extends TestCase
             ['APP_KEY', 'DB_PASSWORD', 'MAIL_PASSWORD', 'OPENAI_API_KEY', 'CRON_TOKEN', 'SOME_NOTE', 'XENDIT_SECRET_KEY', 'XENDIT_CALLBACK_TOKEN', 'GOOGLE_CLIENT_SECRET', 'TURNSTILE_SECRET_KEY'],
             ReleasePackager::secretsIn($template),
         );
+    }
+
+    public function test_a_google_service_account_key_path_is_a_placeholder_but_a_private_key_in_a_template_is_refused(): void
+    {
+        $path = "GOOGLE_SERVICE_ACCOUNT_JSON_PATH=/home/USER/citevanta/storage/app/private/google/citevanta-google.json\nGOOGLE_REQUESTS_PER_MINUTE=30\n";
+        $this->assertSame([], ReleasePackager::secretsIn($path));
+        $this->assertSame([], ReleasePackager::secretsIn("GOOGLE_SERVICE_ACCOUNT_JSON_PATH=\n"));
+
+        $this->assertSame(['GOOGLE_SERVICE_ACCOUNT_JSON_PATH'], ReleasePackager::secretsIn('GOOGLE_SERVICE_ACCOUNT_JSON_PATH="-----BEGIN PRIVATE KEY-----MIIEvQ"'));
+        $this->assertSame(['NOTE'], ReleasePackager::secretsIn('NOTE=-----BEGIN RSA PRIVATE KEY-----abc'));
     }
 
     public function test_old_release_zips_are_removed_and_only_the_new_one_and_other_files_stay(): void

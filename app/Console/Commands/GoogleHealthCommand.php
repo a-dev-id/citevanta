@@ -16,7 +16,7 @@ class GoogleHealthCommand extends Command
     public function handle(GoogleAgent $agent): int
     {
         if ($agent->isBroken()) {
-            $this->warn('Google is disconnected: reconnect in Admin > Integrations > Google.');
+            $this->warn('Google refused the service account key: check it in Admin > Integrations > Google (Test connection).');
 
             return self::SUCCESS;
         }

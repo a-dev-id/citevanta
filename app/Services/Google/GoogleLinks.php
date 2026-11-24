@@ -11,19 +11,19 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Settings > Connect Google: finds the GA4 properties and Search Console
- * sites shared with the agent that belong to the hotel's website, links
+ * sites shared with the service account that belong to the hotel's website, links
  * the ones the owner picks, and unlinks them again.
  */
 final class GoogleLinks
 {
-    public function __construct(private readonly GoogleApi $api) {}
+    public function __construct(private readonly GoogleApi $api, private readonly GoogleAgent $agent) {}
 
     /**
      * "Check connection".
      *
      * @return array{properties: list<array{property: string, displayName: string, urls: list<string>}>, sites: list<array{siteUrl: string, permissionLevel: string}>, errors: list<string>}
      *
-     * @throws GoogleApiException when the agent itself is not connected
+     * @throws GoogleApiException when Google cannot be reached with the service account key
      */
     public function candidates(Hotel $hotel): array
     {
@@ -34,8 +34,17 @@ final class GoogleLinks
             return ['properties' => [], 'sites' => [], 'errors' => ['Add your hotel website first (Hotels > Edit), so we can find its GA4 property and Search Console site.']];
         }
 
+        $email = (string) $this->agent->email();
+        $everyProperty = $this->api->properties();
+        $everySite = $this->api->sites();
+
+        // Nothing at all is shared with the service account yet: say so, instead of two "can't see" lines.
+        if ($everyProperty === [] && $everySite === []) {
+            return ['properties' => [], 'sites' => [], 'errors' => ["Nothing is shared with {$email} yet. Share your GA4 property (role Viewer) and your Search Console site (permission Restricted) with this email, then click Check connection again."]];
+        }
+
         $properties = [];
-        foreach ($this->api->properties() as $property) {
+        foreach ($everyProperty as $property) {
             // Web stream URLs change rarely: cache them for a day (one Admin API call per property).
             $urls = Cache::remember('google:streams:'.$property['property'], now()->addDay(), fn () => $this->api->webStreamUrls($property['property']));
 
@@ -44,9 +53,8 @@ final class GoogleLinks
             }
         }
 
-        $sites = array_values(array_filter($this->api->sites(), fn (array $site) => Url::sameSite(str_replace('sc-domain:', '', $site['siteUrl']), $domain)));
+        $sites = array_values(array_filter($everySite, fn (array $site) => Url::sameSite(str_replace('sc-domain:', '', $site['siteUrl']), $domain)));
 
-        $email = (string) config('services.google.agent_email');
         if ($properties === []) {
             $errors[] = "We can't see any GA4 property for {$domain} yet. Did you add {$email} as Viewer in GA4 (Admin > Property access management)?";
         }

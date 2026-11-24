@@ -3,10 +3,9 @@
 namespace App\Services\Google;
 
 /**
- * Google APIs used with the agent account. Each data method is exactly one
- * API request (plus an access-token refresh when the token expired).
+ * Google APIs used with the service account. Each data method is exactly one
+ * API request (plus a new access token when the cached one expired).
  *
- * - OAuth 2.0: accounts.google.com/o/oauth2/v2/auth, oauth2.googleapis.com/token
  * - GA4 Admin API v1beta: accountSummaries, properties, dataStreams, customDimensions
  * - GA4 Data API v1beta: properties/{id}:runReport
  * - Search Console API webmasters/v3: sites, searchAnalytics/query
@@ -15,24 +14,8 @@ namespace App\Services\Google;
  */
 interface GoogleApi
 {
-    public function authorizationUrl(string $state): string;
-
     /**
-     * Exchange the OAuth code; email is the signed-in account (openid + email scopes).
-     *
-     * @return array{refresh_token: ?string, access_token: string, expires_in: int, scope: string, email: ?string, email_verified: bool}
-     *
-     * @throws GoogleApiException
-     */
-    public function exchangeCode(string $code): array;
-
-    /**
-     * Revoke a token (used when the wrong account signed in).
-     */
-    public function revoke(string $token): void;
-
-    /**
-     * GA4 properties shared with the agent.
+     * GA4 properties shared with the service account.
      *
      * @return list<array{property: string, displayName: string, account: string}>
      */
@@ -64,7 +47,7 @@ interface GoogleApi
     public function runReport(string $property, array $body): array;
 
     /**
-     * Search Console sites shared with the agent.
+     * Search Console sites shared with the service account.
      *
      * @return list<array{siteUrl: string, permissionLevel: string}>
      */

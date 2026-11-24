@@ -51,6 +51,11 @@ final class ReleasePackager
             return false;
         }
 
+        // A Google service account key stays on the server: it is never packed.
+        if (preg_match(self::KEY_FILE_PATTERN, $path) === 1) {
+            return false;
+        }
+
         if (str_starts_with(basename($path), '.env') && ! in_array($path, self::ENV_TEMPLATES, true)) {
             return false;
         }
@@ -141,6 +146,9 @@ final class ReleasePackager
         'GOOGLE_CLIENT_SECRET', 'TURNSTILE_SECRET_KEY',
     ];
 
+    /** Files that hold a Google service account key, wherever they are in the project. */
+    private const KEY_FILE_PATTERN = '/(^|[\/_.-])(service[-_]?account|google[-_]?key|credentials?)[^\/]*\.json$|[-_.]google\.json$/i';
+
     /** Values accepted as placeholders for *_PASSWORD keys. */
     private const PLACEHOLDERS = ['', 'null', 'CHANGE-ME', 'change-me'];
 
@@ -163,7 +171,8 @@ final class ReleasePackager
             $isSecretKey = in_array($key, self::SECRET_KEYS, true) || str_ends_with($key, '_PASSWORD');
 
             if (($isSecretKey && ! in_array($value, self::PLACEHOLDERS, true))
-                || preg_match('/sk-[A-Za-z0-9_\-]{20,}/', $value)) {
+                || preg_match('/sk-[A-Za-z0-9_\-]{20,}/', $value)
+                || str_contains($value, 'PRIVATE KEY')) {
                 $found[] = $key;
             }
         }

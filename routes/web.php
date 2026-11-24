@@ -146,8 +146,7 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
         Route::delete('failed-jobs/{uuid}', [AdminController::class, 'deleteFailedJob'])->name('failed-jobs.delete');
         Route::get('system', [AdminController::class, 'system'])->name('system');
         Route::get('integrations/google', [GoogleIntegrationController::class, 'show'])->name('integrations.google');
-        Route::get('integrations/google/connect', [GoogleIntegrationController::class, 'connect'])->name('integrations.google.connect');
-        Route::get('integrations/google/callback', [GoogleIntegrationController::class, 'callback'])->name('integrations.google.callback');
+        Route::post('integrations/google/test', [GoogleIntegrationController::class, 'test'])->name('integrations.google.test');
         Route::post('system/deploy-tasks', [AdminController::class, 'runDeployTasks'])->name('system.deploy-tasks');
         Route::post('system/clear-caches', [AdminController::class, 'clearCaches'])->name('system.clear-caches');
         Route::post('system/resume-paused', [AdminController::class, 'resumePaused'])->name('system.resume-paused');

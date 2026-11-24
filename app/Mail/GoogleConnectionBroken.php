@@ -6,8 +6,8 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * To admins, once: the Google agent token stopped working; GA4 and Search
- * Console syncs are paused until an admin reconnects.
+ * To admins, once: Google refused the service account key; GA4 and Search
+ * Console syncs are paused until it is fixed (Admin > Integrations > Google > Test connection).
  */
 class GoogleConnectionBroken extends ThrottledMail
 {
@@ -15,7 +15,7 @@ class GoogleConnectionBroken extends ThrottledMail
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Google connection needs to be reconnected');
+        return new Envelope(subject: 'Google refused the service account key');
     }
 
     public function content(): Content

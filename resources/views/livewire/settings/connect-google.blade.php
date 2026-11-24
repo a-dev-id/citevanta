@@ -17,14 +17,19 @@
     @else
         <div class="row gx-3">
             <div class="col-xl-7">
-                <x-card title="1. Share access with {{ config('app.name') }}" subtitle="Read-only: we can see reports, never change anything." :collapsible="false">
+                <x-card title="1. Share access with {{ config('app.name') }}" subtitle="Read-only: we can see reports, never change anything. Share with this service account email." :collapsible="false">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3" x-data="{ copied: false }">
-                        <code class="fs-6" id="agent-email">{{ $agentEmail ?: 'not configured' }}</code>
-                        <button type="button" class="btn btn-sm btn-outline-primary"
+                        <code class="fs-6" id="agent-email">{{ $agentEmail ?: 'not available yet' }}</code>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @disabled(! $agentEmail)
                                 x-on:click="navigator.clipboard.writeText(@js($agentEmail)); copied = true; setTimeout(() => copied = false, 2000)">
                             <i class="fa-solid fa-copy me-1" aria-hidden="true"></i><span x-text="copied ? 'Copied' : 'Copy email'">Copy email</span>
                         </button>
                     </div>
+                    @if ($agentEmail)
+                        <p class="small text-muted">This is an automated reader for {{ config('app.name') }}, not a person: its address ends in <code>.iam.gserviceaccount.com</code>. Add it exactly as written.</p>
+                    @else
+                        <div class="alert alert-warning small" role="alert">The address to share with is not available right now. Please try again later; our team has been notified.</div>
+                    @endif
 
                     <h3 class="h6">Google Analytics 4</h3>
                     <ol class="small">

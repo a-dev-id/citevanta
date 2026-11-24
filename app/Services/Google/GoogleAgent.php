@@ -8,20 +8,33 @@ use App\Services\Budget\AdminMailer;
 use Illuminate\Database\QueryException;
 
 /**
- * The agent Google account (GOOGLE_AGENT_EMAIL), connected once by an admin
- * with OAuth (offline access, consent prompt). Stores the refresh token
- * encrypted, keeps a short-lived access token, and when Google stops
- * accepting the refresh token (revoked, or expired after 7 days while the
- * Google app is in testing mode) marks the connection broken and emails
- * the admins once.
+ * The Google connection of the app: a service account (see GoogleServiceAccount)
+ * that hotels share GA4 and Search Console with.
+ *
+ * Keeps the connection state in the google_connections row (the older OAuth
+ * columns stay unused): status, the last error, the last successful call and
+ * whether the admins were already told. When Google refuses the key the
+ * connection is marked broken, a red banner shows, and the admins get one
+ * email. The next successful call (for example "Test connection") clears it.
  */
 final class GoogleAgent
 {
-    public function __construct(private readonly AdminMailer $admins) {}
+    /** Shown in fake data mode (no key file): there is no real account. */
+    public const FAKE_EMAIL = 'citevanta-reader@sample-project.iam.gserviceaccount.com';
 
-    public static function redirectUri(): string
+    public function __construct(private readonly AdminMailer $admins, private readonly GoogleServiceAccount $account) {}
+
+    /**
+     * The service account e-mail that hotels add in GA4 and Search Console.
+     */
+    public function email(): ?string
     {
-        return route('admin.integrations.google.callback');
+        return config('services.google.fake') ? self::FAKE_EMAIL : $this->account->email();
+    }
+
+    public function account(): GoogleServiceAccount
+    {
+        return $this->account;
     }
 
     public function connection(): ?GoogleConnection
@@ -30,99 +43,61 @@ final class GoogleAgent
     }
 
     /**
-     * @throws GoogleApiException
-     */
-    public function connect(GoogleApi $api, string $code): GoogleConnection
-    {
-        $tokens = $api->exchangeCode($code);
-        $agent = strtolower(trim((string) config('services.google.agent_email')));
-
-        // Only the agent account may be connected: another account would read the wrong properties.
-        if ($agent === '' || $tokens['email'] !== $agent || ! $tokens['email_verified']) {
-            $api->revoke($tokens['refresh_token'] ?? $tokens['access_token']);
-
-            throw new GoogleApiException($agent === ''
-                ? 'Set GOOGLE_AGENT_EMAIL first, then connect again.'
-                : "Please sign in as {$agent}.".($tokens['email'] ? " You signed in as {$tokens['email']}." : ''));
-        }
-
-        if (($tokens['refresh_token'] ?? null) === null) {
-            throw new GoogleApiException('Google did not send a refresh token. Remove the app from the agent account (myaccount.google.com > Security > Third-party access) and connect again.');
-        }
-
-        GoogleConnection::query()->delete();
-
-        return GoogleConnection::create([
-            'email' => $tokens['email'],
-            'refresh_token' => $tokens['refresh_token'],
-            'access_token' => $tokens['access_token'],
-            'access_expires_at' => now()->addSeconds(max(60, $tokens['expires_in'] - 60)),
-            'scopes' => $tokens['scope'],
-            'status' => 'ok',
-            'connected_at' => now(),
-            'last_success_at' => now(),
-        ]);
-    }
-
-    /**
-     * A valid access token, refreshed when it expired.
+     * A valid access token for Google, from the cache or newly requested.
      *
      * @throws GoogleApiException
      */
-    public function accessToken(HttpGoogleApi $api): string
+    public function accessToken(): string
     {
-        $connection = $this->connection();
-
-        if ($connection === null || ! $connection->isWorking()) {
-            throw new GoogleApiException('Google is not connected. An admin must connect the agent account in Admin > Integrations > Google.', 401, 'not_connected');
-        }
-
-        if ($connection->access_token !== null && $connection->access_expires_at?->isFuture()) {
-            return $connection->access_token;
-        }
-
         try {
-            $data = $api->tokenRequest(['grant_type' => 'refresh_token', 'refresh_token' => $connection->refresh_token]);
+            return $this->account->accessToken();
         } catch (GoogleApiException $e) {
-            if ($e->reason === 'invalid_grant' || $e->status === 400 || $e->status === 401) {
-                $this->markFailure('Google no longer accepts the saved token ('.($e->reason ?? $e->status).'). Click "Reconnect".');
+            if ($e->isKeyProblem()) {
+                $this->markFailure($e->getMessage());
             }
 
             throw $e;
         }
-
-        $connection->forceFill([
-            'access_token' => (string) $data['access_token'],
-            'access_expires_at' => now()->addSeconds(max(60, (int) ($data['expires_in'] ?? 3600) - 60)),
-        ])->save();
-
-        return (string) $data['access_token'];
     }
 
     public function forgetAccessToken(): void
     {
-        $this->connection()?->forceFill(['access_token' => null, 'access_expires_at' => null])->save();
+        $this->account->forgetAccessToken();
+    }
+
+    /**
+     * One cheap call to Google (the GA4 accounts shared with us), for the admin's "Test connection".
+     *
+     * @return array{properties: int, accounts: int}
+     *
+     * @throws GoogleApiException
+     */
+    public function testConnection(GoogleApi $api): array
+    {
+        $properties = $api->properties();
+        $this->markSuccess();
+
+        return ['properties' => count($properties), 'accounts' => count(array_unique(array_column($properties, 'account')))];
     }
 
     public function markSuccess(): void
     {
-        $connection = $this->connection();
+        $connection = $this->row();
 
-        if ($connection !== null && ($connection->last_success_at === null || $connection->last_success_at->lt(now()->subMinute()))) {
-            $connection->forceFill(['last_success_at' => now()])->save();
+        if ($connection->status !== 'ok' || $connection->last_success_at === null || $connection->last_success_at->lt(now()->subMinute())) {
+            $connection->forceFill([
+                'status' => 'ok', 'error' => null, 'failure_alerted_at' => null, 'last_success_at' => now(),
+                'email' => $this->account->email() ?? $connection->email,
+            ])->save();
         }
     }
 
     public function markFailure(string $error): void
     {
-        $connection = $this->connection();
-
-        if ($connection === null) {
-            return;
-        }
-
+        $connection = $this->row();
         $first = $connection->failure_alerted_at === null;
-        $connection->forceFill(['status' => 'error', 'error' => $error, 'failure_alerted_at' => $connection->failure_alerted_at ?? now()])->save();
+
+        $connection->forceFill(['status' => 'error', 'error' => mb_substr($error, 0, 500), 'failure_alerted_at' => $connection->failure_alerted_at ?? now()])->save();
 
         if ($first) {
             $this->admins->send(fn () => new GoogleConnectionBroken($error));
@@ -139,5 +114,20 @@ final class GoogleAgent
         }
 
         return $connection !== null && ! $connection->isWorking();
+    }
+
+    /**
+     * The state row. An old OAuth connection row is taken over: its refresh and access tokens are
+     * blanked, because nothing uses them any more and they should not stay in the database.
+     */
+    private function row(): GoogleConnection
+    {
+        $connection = $this->connection() ?? GoogleConnection::create(['refresh_token' => '', 'status' => 'ok', 'connected_at' => now()]);
+
+        if ($connection->refresh_token !== '' || $connection->access_token !== null) {
+            $connection->forceFill(['refresh_token' => '', 'access_token' => null, 'access_expires_at' => null, 'scopes' => null])->save();
+        }
+
+        return $connection;
     }
 }

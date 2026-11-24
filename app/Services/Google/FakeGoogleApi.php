@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Local development and tests (no GOOGLE_CLIENT_ID): every hotel with a
+ * Local development and tests (no GOOGLE_SERVICE_ACCOUNT_JSON_PATH): every hotel with a
  * website has a GA4 property and a Search Console domain property "shared"
  * with the agent, with deterministic numbers. ChatGPT and Perplexity send
  * some referral visits; purchases exist; the booking engine hostname shows
@@ -27,22 +27,6 @@ final class FakeGoogleApi implements GoogleApi
     private const DEVICES = ['mobile', 'desktop', 'tablet'];
 
     private const EVENTS = ['page_view', 'session_start', 'view_item', 'begin_checkout', 'purchase'];
-
-    public function authorizationUrl(string $state): string
-    {
-        return route('admin.integrations.google.callback', ['code' => 'fake-code', 'state' => $state]);
-    }
-
-    public function exchangeCode(string $code): array
-    {
-        return [
-            'refresh_token' => 'fake-refresh-token', 'access_token' => 'fake-access-token', 'expires_in' => 3600,
-            'scope' => implode(' ', (array) config('services.google.scopes')),
-            'email' => strtolower((string) config('services.google.agent_email')) ?: null, 'email_verified' => true,
-        ];
-    }
-
-    public function revoke(string $token): void {}
 
     public function properties(): array
     {

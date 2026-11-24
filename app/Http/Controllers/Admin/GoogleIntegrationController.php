@@ -8,56 +8,41 @@ use App\Services\Google\GoogleAgent;
 use App\Services\Google\GoogleApi;
 use App\Services\Google\GoogleApiException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Admin > Integrations > Google: connect the agent account once (OAuth with
- * offline access and the consent prompt), see its status, reconnect.
+ * Admin > Integrations > Google: the service account e-mail (to give to hotels),
+ * whether the key file is found and valid (never its contents), the last
+ * successful call, and a "Test connection" button.
  */
 class GoogleIntegrationController extends Controller
 {
-    private const STATE_KEY = 'google_oauth_state';
-
     public function show(GoogleAgent $agent): View
     {
         return view('admin.integrations-google', [
             'connection' => $agent->connection(),
-            'agentEmail' => (string) config('services.google.agent_email'),
-            'configured' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
+            'agentEmail' => $agent->email(),
+            'key' => $agent->account()->status(),
             'fake' => (bool) config('services.google.fake'),
-            'redirectUri' => GoogleAgent::redirectUri(),
             'linkedHotels' => HotelGoogleLink::query()->count(),
         ]);
     }
 
-    public function connect(Request $request, GoogleApi $api): RedirectResponse
+    /**
+     * Ask Google for the GA4 accounts the service account can see. A refused key shows the red banner.
+     */
+    public function test(GoogleAgent $agent, GoogleApi $api): RedirectResponse
     {
-        $state = Str::random(40);
-        $request->session()->put(self::STATE_KEY, $state);
-
-        return redirect()->away($api->authorizationUrl($state));
-    }
-
-    public function callback(Request $request, GoogleAgent $agent, GoogleApi $api): RedirectResponse
-    {
-        $expected = (string) $request->session()->pull(self::STATE_KEY, '');
-
-        if ($expected === '' || ! hash_equals($expected, (string) $request->query('state'))) {
-            return to_route('admin.integrations.google')->with('error', 'The Google sign-in expired or did not come from this page. Please try again.');
-        }
-
-        if ($request->filled('error')) {
-            return to_route('admin.integrations.google')->with('error', 'Google sign-in was cancelled ('.Str::limit((string) $request->query('error'), 60).').');
-        }
-
         try {
-            $agent->connect($api, (string) $request->query('code'));
+            $result = $agent->testConnection($api);
         } catch (GoogleApiException $e) {
-            return to_route('admin.integrations.google')->with('error', $e->getMessage());
+            return to_route('admin.integrations.google')->with('error', 'Google test failed: '.$e->getMessage());
         }
 
-        return to_route('admin.integrations.google')->with('status', 'Google connected. Hotels can now share their GA4 and Search Console with the agent email.');
+        $email = $agent->email();
+
+        return to_route('admin.integrations.google')->with('status', $result['properties'] === 0
+            ? "Google accepted the key. No GA4 property is shared with {$email} yet."
+            : "Google accepted the key. {$result['properties']} GA4 ".($result['properties'] === 1 ? 'property is' : 'properties are')." shared with {$email} ({$result['accounts']} ".($result['accounts'] === 1 ? 'account' : 'accounts').').');
     }
 }

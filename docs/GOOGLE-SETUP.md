@@ -1,6 +1,6 @@
 # Google setup (GA4 and Search Console for the Private plan)
 
-The app reads Google Analytics 4 and Search Console through **one Google account that you own**, the "agent" (for example `citevanta-view-agent@citevanta.com`, or for testing any Google account of yours). Hotels share read access with that email. You connect the agent to the app **once**; after that the app reads every property and site shared with it.
+The app reads Google Analytics 4 and Search Console through **one Google service account that you own**. Hotels share read access with the service account's email address, the same way they would share it with a person. The account has a **JSON key file** that you upload to the server once; after that the app reads every property and site shared with it. Nobody signs in to Google, so there is no consent screen, no OAuth client and no token that expires.
 
 APIs used (read-only):
 
@@ -10,81 +10,106 @@ APIs used (read-only):
 | Google Analytics Admin API | v1beta (`accountSummaries`, `properties/{id}`, `dataStreams`, `customDimensions`) | Finding the hotel's property, booking date parameters |
 | Search Console API | webmasters/v3 (`sites`, `searchAnalytics/query`) | Daily queries, pages, countries, devices |
 
-Scopes: `https://www.googleapis.com/auth/analytics.readonly` and `https://www.googleapis.com/auth/webmasters.readonly` (read only), plus `openid` and `email` so the app can check that the agent account signed in. Nothing else.
+Scopes: `https://www.googleapis.com/auth/analytics.readonly` and `https://www.googleapis.com/auth/webmasters.readonly` (read only). Nothing else.
 
 > Search Console's AI Overviews / AI Mode numbers are **not** available through the API (checked 20 Nov 2026), so the app does not show them.
 
-## 1. Create the agent Google account
+## 1. Create the Google Cloud project
 
-- With Google Workspace: create a user, for example `citevanta-view-agent@citevanta.com`.
-- Without Workspace (testing): any Google account you own.
+1. Go to <https://console.cloud.google.com/> and sign in with your own Google account.
+2. Top bar > project picker > **New project**. Name: the product name (for example "CiteVanta"). Create it and select it.
 
-Put the email in `.env` later as `GOOGLE_AGENT_EMAIL`. This is the email hotels add in GA4 and Search Console.
+## 2. Enable the three APIs
 
-## 2. Create the Google Cloud project
-
-1. Go to <https://console.cloud.google.com/> and sign in (with your own admin account, not necessarily the agent).
-2. Top bar > project picker > **New project**. Name: the product name (for example "CiteVanta"). Create and select it.
-
-## 3. Enable the three APIs
-
-**APIs & Services > Library**, search and click **Enable** for each:
+**APIs & Services > Library**, search each name, click it and press **Enable**:
 
 1. **Google Analytics Data API**
 2. **Google Analytics Admin API**
 3. **Google Search Console API**
 
-## 4. Configure the OAuth consent screen
+They must be enabled in the **same project** as the service account, or Google answers "API has not been used in project ... before or it is disabled".
 
-**APIs & Services > OAuth consent screen** (or **Google Auth Platform > Branding / Audience**):
+## 3. Create the service account
 
-- **User type**
-  - **Internal** if the agent is a Google Workspace user in your own Workspace. Internal apps need no verification and tokens do not expire after 7 days.
-  - **External** otherwise. Add the agent email under **Test users**.
-- App name: the product name. Support email: yours. Authorised domain: your app domain (for example `a-dashboard.com`, later `citevanta.com`).
-- **Scopes** (Data access): add `openid`, `.../auth/userinfo.email`, `.../auth/analytics.readonly` and `.../auth/webmasters.readonly`.
+**IAM & Admin > Service accounts > Create service account**:
 
-**Important for External apps:** while the publishing status is **Testing**, Google lets the refresh token expire after **7 days**. The app then emails the admins and shows a red banner; click **Reconnect** in Admin > Integrations > Google. To stop this, click **Publish app** on the consent screen. Google may ask for verification because these are Google user-data scopes; you can keep using it as "unverified" for your own agent account.
+- Name: for example `citevanta-reader`. The email Google creates looks like `citevanta-reader@your-project.iam.gserviceaccount.com`. **Hotels see this address** in their GA4 user list, so choose a clear name.
+- You do **not** need to grant it any role in the project. Skip "Grant this service account access to project" and "Grant users access".
 
-## 5. Create the OAuth client
+## 4. Create the JSON key
 
-**APIs & Services > Credentials > + Create credentials > OAuth client ID**:
+Open the service account > **Keys > Add key > Create new key > JSON > Create**. Your browser downloads a `.json` file **once**; Google cannot show it again.
 
-- Application type: **Web application**
-- Name: "Agent connection"
-- **Authorised redirect URIs**: the URI shown on Admin > Integrations > Google, which is
-  `APP_URL/admin/integrations/google/callback`, for example
-  `https://citevanta.a-dashboard.com/admin/integrations/google/callback`
-  (when the app moves to `citevanta.com`, add `https://citevanta.com/admin/integrations/google/callback` too and reconnect).
-- Create, then copy the **Client ID** and **Client secret**.
+Treat this file like a password:
 
-## 6. Fill in .env
+- It is the only thing that proves the app is this service account.
+- Never paste it into chat, email, `.env`, a ticket or git, and never put it in `public_html`.
+- Keep one copy in a password manager (or note that you can always create a new key and delete the old one).
+
+If Google refuses to create keys ("Service account key creation is disabled"), your organisation has the policy `iam.disableServiceAccountKeyCreation` turned on. An organisation admin can allow it for this project.
+
+## 5. Upload the key to the server
+
+On cPanel (File Manager), in the app folder, for example `/home/balj5948/citevanta`:
+
+1. Open `storage/app/private/`, create a folder `google` (if it does not exist).
+2. Upload the key into it and rename it `citevanta-google.json`:
+   `/home/balj5948/citevanta/storage/app/private/google/citevanta-google.json`
+3. Right-click the file > **Change Permissions** > set **640** (owner read and write, group read, others nothing). Do the same for the folder with **750**.
+4. Delete the downloaded copy from your Downloads folder.
+
+This folder is outside the web root (`public_html/...`), so no one can open the file through the browser. `storage/app/private/google/` is in `.gitignore`, and the release zip never includes key files: `citevanta:package` skips any `service-account*.json`, `credentials*.json`, `google-key*.json` and `*-google.json`, and refuses to package an `.env` template that contains a private key.
+
+## 6. Set the path in `.env`
+
+On the server (`/home/balj5948/citevanta/.env`):
 
 ```
-GOOGLE_CLIENT_ID=123456789-xxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxx
-GOOGLE_AGENT_EMAIL=citevanta-view-agent@citevanta.com
+GOOGLE_SERVICE_ACCOUNT_JSON_PATH=/home/balj5948/citevanta/storage/app/private/google/citevanta-google.json
 ```
 
-Without `GOOGLE_CLIENT_ID` the app uses fake Google data (local development). After changing `.env` on the server: Admin > System > Clear caches.
+For local development you may use a path relative to the `storage` folder, for example `app/private/google/citevanta-google.json`.
 
-## 7. Connect the agent
+**Empty path = fake Google data** (local development and tests): the app shows sample numbers and a sample address and never calls Google. After changing `.env` on the server: Admin > System > **Clear caches**.
 
-1. Log in to the app as an admin: **Admin > Integrations > Google > Connect agent account**.
-2. Google asks you to sign in: choose the **agent** account (the app suggests it) and allow read-only access.
-3. Back in the app the status shows **Connected** with the connected account. If you signed in with another account, the app refuses it ("Please sign in as ..."), revokes that token and you can try again.
+The old OAuth settings `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_AGENT_EMAIL` are no longer used: remove them from `.env`. Hotels that were already linked keep their saved GA4 property and Search Console site.
 
-The refresh token is stored encrypted and never shown. The connection status and the last successful call are on the same page.
+## 7. Test the connection
+
+Log in as an admin: **Admin > Integrations > Google**. The page shows:
+
+- the **service account email** (read from the key file) with a **Copy email** button: this is what you give to hotels,
+- whether the **key file is found and valid** (never its contents),
+- the **last successful call**,
+- a **Test connection** button, which asks Google for the GA4 accounts shared with the service account. A new account has none yet; "Google accepted the key" is the success message.
 
 ## 8. What a hotel does
 
-On **Settings > Connect Google** (Private plan owners) the hotel sees the agent email with a copy button and these steps:
+On **Settings > Connect Google** (Private plan owners) the hotel sees the service account email with a copy button and these steps:
 
 - **GA4**: Admin > Property access management > + > Add users > paste the email > role **Viewer** > untick "Notify new users by email" > Add.
 - **Search Console**: Settings > Users and permissions > Add user > paste the email > Permission **Restricted** > Add.
 
-Then **Check connection** lists the property and site that match the hotel website. The owner picks them; the tracking health check and the first sync start (GA4: last 13 months, to compare this year with last year; Search Console: last 16 months, one job per day; then daily).
+Then **Check connection** lists only the GA4 properties and Search Console sites this service account can see, filtered by the hotel's website domain. If nothing is shared yet, the page says so. The owner picks the property and site; the tracking health check and the first sync start (GA4: last 13 months, to compare this year with last year; Search Console: last 16 months, one job per day; then daily).
+
+## If Google refuses the key
+
+When Google rejects the key (deleted, disabled, or a different project), the app:
+
+- marks the connection broken, shows a **red banner** to admins, and pauses the GA4 and Search Console syncs,
+- **emails the admins once**.
+
+Check that the service account and its key still exist in Google Cloud (IAM & Admin > Service accounts > Keys) and that the file on the server is the current key. Then open Admin > Integrations > Google and click **Test connection**: a successful test clears the banner and the syncs continue.
+
+## Replacing the key (rotation)
+
+1. In Google Cloud, create a **new** JSON key for the same service account (step 4).
+2. Upload it over `citevanta-google.json` (step 5) with permission 640.
+3. Admin > Integrations > Google > **Test connection**.
+4. Only then delete the old key in Google Cloud.
+
+Hotels do not need to do anything: the service account email stays the same.
 
 ## Quotas
 
-The sync makes one API call per job and at most 30 calls a minute (`citevanta.google.requests_per_minute`). GA4 standard properties allow 40,000 core tokens per hour and 200,000 per day per property; a typical report costs about 10 tokens. Search Console allows 1,200 queries per minute per site. On a quota error the job waits 15 minutes and retries.
+The sync makes one API call per job and at most 30 calls a minute (`GOOGLE_REQUESTS_PER_MINUTE`). GA4 standard properties allow 40,000 core tokens per hour and 200,000 per day per property; a typical report costs about 10 tokens. Search Console allows 1,200 queries per minute per site. On a quota error the job waits 15 minutes and retries. The access token is requested once and kept for about 50 minutes.

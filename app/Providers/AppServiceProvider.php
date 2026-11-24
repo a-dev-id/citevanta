@@ -74,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(HumanVerifier::class, TurnstileVerifier::class);
 
-        // Google: the real APIs with GOOGLE_CLIENT_ID, otherwise deterministic fakes.
+        // Google: the real APIs with GOOGLE_SERVICE_ACCOUNT_JSON_PATH, otherwise deterministic fakes.
         $this->app->bind(GoogleApi::class, fn ($app) => config('services.google.fake')
             ? $app->make(FakeGoogleApi::class)
             : $app->make(HttpGoogleApi::class));

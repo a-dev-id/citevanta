@@ -57,7 +57,7 @@ final class GoogleHealth
             }
 
             $result = self::result('red', $e->isPermission()
-                ? 'We lost access. Check that '.config('services.google.agent_email').' still has access in GA4 and Search Console.'
+                ? 'We lost access. Check that '.app(GoogleAgent::class)->email().' still has access in GA4 and Search Console.'
                 : 'Google answered with an error: '.$e->getMessage());
         }
 

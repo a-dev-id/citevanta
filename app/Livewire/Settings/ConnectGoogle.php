@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Jobs\GoogleHealthJob;
 use App\Models\Hotel;
+use App\Services\Google\GoogleAgent;
 use App\Services\Google\GoogleApiException;
 use App\Services\Google\GoogleHealth;
 use App\Services\Google\GoogleLinks;
@@ -70,7 +71,8 @@ class ConnectGoogle extends Component
         try {
             $result = $links->candidates($this->hotel());
         } catch (GoogleApiException $e) {
-            $this->error = $e->reason === 'not_connected'
+            // Key and setup problems are for the admins (they see them on Admin > Integrations > Google), not for the hotel.
+            $this->error = $e->isKeyProblem()
                 ? 'The Google connection is not available right now. Please try again later; our team has been notified.'
                 : $e->getMessage();
 
@@ -141,7 +143,7 @@ class ConnectGoogle extends Component
     {
         $links->unlink($this->hotel());
         $this->reset('properties', 'sites', 'problems', 'checked', 'property', 'site');
-        $this->notice = 'Disconnected. Please also remove '.config('services.google.agent_email').' in GA4 (Admin > Property access management) and in Search Console (Settings > Users and permissions).';
+        $this->notice = 'Disconnected. Please also remove '.app(GoogleAgent::class)->email().' in GA4 (Admin > Property access management) and in Search Console (Settings > Users and permissions).';
     }
 
     public function render(): View
@@ -152,7 +154,7 @@ class ConnectGoogle extends Component
         return view('livewire.settings.connect-google', [
             'hotel' => $hotel,
             'link' => $link,
-            'agentEmail' => (string) config('services.google.agent_email'),
+            'agentEmail' => (string) app(GoogleAgent::class)->email(),
             'checks' => GoogleHealth::LABELS,
             'health' => (array) ($link?->health ?? []),
             'parameters' => (array) (($link?->health['booking_dates']['details']['parameters'] ?? [])),

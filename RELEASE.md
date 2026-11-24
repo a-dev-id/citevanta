@@ -99,7 +99,7 @@ All are in `.env.production.example`. Copy the new lines into the live `.env`.
 | --- | --- |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | When you create a Cloudflare Turnstile site (recommended: without it only a hidden field protects the forms). |
 | `XENDIT_SECRET_KEY`, `XENDIT_CALLBACK_TOKEN`, `XENDIT_MODE` | Only if you switch `BILLING_PROVIDER` to `xendit`. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_AGENT_EMAIL` | When you set up Google (`docs/GOOGLE-SETUP.md`). **Until then, do not put a team on the Private plan:** with an empty `GOOGLE_CLIENT_ID` the app shows fake sample data. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON_PATH` | When you set up Google (`docs/GOOGLE-SETUP.md`). **Until then, do not put a team on the Private plan:** with an empty `GOOGLE_SERVICE_ACCOUNT_JSON_PATH` the app shows fake sample data. |
 
 ---
 

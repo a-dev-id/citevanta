@@ -7,86 +7,14 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Google APIs with Laravel's HTTP client (no SDK). Requests use the agent's
- * access token, refreshed with the stored refresh token when it expires.
- * When Google refuses the refresh token, GoogleAgent marks the connection
+ * Google APIs with Laravel's HTTP client (no SDK). Requests use the service
+ * account's access token (GoogleAgent::accessToken(), cached for about 50
+ * minutes). When Google refuses the key, GoogleAgent marks the connection
  * broken and alerts the admins.
  */
 final class HttpGoogleApi implements GoogleApi
 {
     public function __construct(private readonly GoogleAgent $agent) {}
-
-    public function authorizationUrl(string $state): string
-    {
-        return config('services.google.auth_url').'?'.http_build_query(array_filter([
-            'client_id' => config('services.google.client_id'),
-            'redirect_uri' => GoogleAgent::redirectUri(),
-            'response_type' => 'code',
-            'scope' => implode(' ', (array) config('services.google.scopes')),
-            'access_type' => 'offline',
-            'prompt' => 'consent',
-            'include_granted_scopes' => 'true',
-            'login_hint' => config('services.google.agent_email'),
-            'state' => $state,
-        ]));
-    }
-
-    public function exchangeCode(string $code): array
-    {
-        $data = $this->tokenRequest([
-            'code' => $code,
-            'grant_type' => 'authorization_code',
-            'redirect_uri' => GoogleAgent::redirectUri(),
-        ]);
-
-        $identity = $this->identity($data);
-
-        return [
-            'refresh_token' => $data['refresh_token'] ?? null,
-            'access_token' => (string) ($data['access_token'] ?? ''),
-            'expires_in' => (int) ($data['expires_in'] ?? 3600),
-            'scope' => (string) ($data['scope'] ?? ''),
-            'email' => $identity['email'],
-            'email_verified' => $identity['email_verified'],
-        ];
-    }
-
-    public function revoke(string $token): void
-    {
-        try {
-            Http::asForm()->timeout((int) config('services.google.timeout', 30))->post((string) config('services.google.revoke_url'), ['token' => $token]);
-        } catch (ConnectionException) {
-            // Best effort: an unused token also expires on its own.
-        }
-    }
-
-    /**
-     * The signed-in account from the ID token of the code exchange (it comes
-     * straight from Google's token endpoint over HTTPS, so Google's docs allow
-     * reading it without verifying the signature), else from the userinfo endpoint.
-     *
-     * @param  array<string, mixed>  $tokens
-     * @return array{email: ?string, email_verified: bool}
-     */
-    private function identity(array $tokens): array
-    {
-        $parts = explode('.', (string) ($tokens['id_token'] ?? ''));
-        $claims = count($parts) === 3 ? (array) json_decode((string) base64_decode(strtr($parts[1], '-_', '+/')), true) : [];
-
-        if (! isset($claims['email']) && isset($tokens['access_token'])) {
-            try {
-                $claims = (array) Http::withToken((string) $tokens['access_token'])->acceptJson()->timeout((int) config('services.google.timeout', 30))
-                    ->get((string) config('services.google.userinfo_url'))->json();
-            } catch (ConnectionException) {
-                $claims = [];
-            }
-        }
-
-        return [
-            'email' => isset($claims['email']) ? strtolower((string) $claims['email']) : null,
-            'email_verified' => filter_var($claims['email_verified'] ?? false, FILTER_VALIDATE_BOOL),
-        ];
-    }
 
     public function properties(): array
     {
@@ -176,7 +104,7 @@ final class HttpGoogleApi implements GoogleApi
      */
     private function send(string $method, string $url, array $payload = []): array
     {
-        $token = $this->agent->accessToken($this);
+        $token = $this->agent->accessToken();
 
         try {
             $response = Http::withToken($token)->acceptJson()->timeout((int) config('services.google.timeout', 30))->{$method}($url, $payload);
@@ -185,9 +113,9 @@ final class HttpGoogleApi implements GoogleApi
         }
 
         if ($response->status() === 401) {
-            // The access token was revoked early: refresh once and retry.
+            // The access token was revoked early: ask for a new one once and retry.
             $this->agent->forgetAccessToken();
-            $response = Http::withToken($this->agent->accessToken($this))->acceptJson()->timeout((int) config('services.google.timeout', 30))->{$method}($url, $payload);
+            $response = Http::withToken($this->agent->accessToken())->acceptJson()->timeout((int) config('services.google.timeout', 30))->{$method}($url, $payload);
         }
 
         if ($response->failed()) {
@@ -195,34 +123,6 @@ final class HttpGoogleApi implements GoogleApi
         }
 
         $this->agent->markSuccess();
-
-        return (array) $response->json();
-    }
-
-    /**
-     * Token endpoint call (code exchange or refresh), used by GoogleAgent too.
-     *
-     * @param  array<string, string>  $fields
-     * @return array<string, mixed>
-     */
-    public function tokenRequest(array $fields): array
-    {
-        try {
-            $response = Http::asForm()->acceptJson()->timeout((int) config('services.google.timeout', 30))->post((string) config('services.google.token_url'), $fields + [
-                'client_id' => (string) config('services.google.client_id'),
-                'client_secret' => (string) config('services.google.client_secret'),
-            ]);
-        } catch (ConnectionException) {
-            throw new GoogleApiException('Could not reach Google.');
-        }
-
-        if ($response->failed()) {
-            throw new GoogleApiException(
-                'Google refused the token request: '.(string) ($response->json('error_description') ?? $response->json('error') ?? $response->status()),
-                $response->status(),
-                is_string($response->json('error')) ? $response->json('error') : null,
-            );
-        }
 
         return (array) $response->json();
     }
