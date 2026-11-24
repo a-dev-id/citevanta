@@ -147,6 +147,8 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
         Route::get('system', [AdminController::class, 'system'])->name('system');
         Route::get('integrations/google', [GoogleIntegrationController::class, 'show'])->name('integrations.google');
         Route::post('integrations/google/test', [GoogleIntegrationController::class, 'test'])->name('integrations.google.test');
+        Route::post('integrations/google/diagnose', [GoogleIntegrationController::class, 'diagnose'])->name('integrations.google.diagnose');
+        Route::post('integrations/google/resync', [GoogleIntegrationController::class, 'resync'])->name('integrations.google.resync');
         Route::post('system/deploy-tasks', [AdminController::class, 'runDeployTasks'])->name('system.deploy-tasks');
         Route::post('system/clear-caches', [AdminController::class, 'clearCaches'])->name('system.clear-caches');
         Route::post('system/resume-paused', [AdminController::class, 'resumePaused'])->name('system.resume-paused');

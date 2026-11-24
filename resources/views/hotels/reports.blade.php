@@ -47,6 +47,13 @@
             </div>
         @endforeach
 
+        @isset($completeThrough)
+            <div class="alert alert-info d-flex gap-2" role="status">
+                <i class="fa-solid fa-rotate mt-1" aria-hidden="true"></i>
+                <div>Data complete through <strong>{{ $completeThrough->format('j M Y') }}</strong>. Later days are still being copied from Google; they are blank in the charts, and the totals and tables count only the days copied so far.</div>
+            </div>
+        @endisset
+
         @if ($findings !== [])
             <x-card title="What this means" subtitle="Findings from your data, with where to act" :collapsible="false" class="mb-3">
                 <ul class="list-unstyled mb-0">

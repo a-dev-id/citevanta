@@ -66,6 +66,41 @@ class ReportsTest extends TestCase
         ]);
     }
 
+    public function test_days_not_copied_yet_are_blank_with_a_data_complete_through_notice(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        foreach (range(1, 14) as $day) {
+            $this->traffic($hotel, now()->subDays($day)->toDateString(), 'chatgpt.com', ['sessions' => 5 + $day]);
+        }
+        // Nothing for the last 5 days yet, and a sync job is still waiting.
+        DB::table('ga4_traffic_daily')->where('hotel_id', $hotel->id)->where('date', '>=', now()->subDays(5)->toDateString())->delete();
+        DB::table('jobs')->insert(['queue' => 'google', 'payload' => '{}', 'attempts' => 0, 'available_at' => now()->timestamp, 'created_at' => now()->timestamp]);
+
+        $report = new AiTrafficReport($hotel, ReportPeriod::make('28d'));
+        $sessions = $report->charts()['sessions']['series'][0]['data'];
+
+        $this->assertSame('2026-11-17', $report->completeThrough()->toDateString(), 'the newest stored day may be half copied, so it is not counted');
+        $this->assertTrue($report->isIncomplete());
+        $this->assertNull($sessions[27], 'yesterday is blank, not zero');
+        $this->assertNull($sessions[22]);
+        $this->assertNotNull($sessions[21], '17 Nov (the last complete day) has its value');
+        $this->assertSame(0, $sessions[0], 'a copied day without AI visits stays a real zero');
+
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('Data complete through')->assertSee('17 Nov 2026');
+    }
+
+    public function test_a_finished_sync_shows_no_notice_and_all_days_as_values(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        $this->traffic($hotel, '2026-11-20', 'chatgpt.com');
+
+        $report = new AiTrafficReport($hotel, ReportPeriod::make('28d'));
+
+        $this->assertFalse($report->isIncomplete());
+        $this->assertNotContains(null, $report->charts()['sessions']['series'][0]['data']);
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertDontSee('Data complete through');
+    }
+
     public function test_only_private_teams_have_reports_and_other_teams_get_403(): void
     {
         [$owner, $hotel] = $this->privateHotel();

@@ -1,6 +1,38 @@
 <x-layouts::app title="Google" :breadcrumbs="['Admin' => null, 'Integrations' => null, 'Google' => null]">
     <x-flash />
 
+    <x-card title="Diagnostics and re-sync" subtitle="Compare what we stored from GA4 for a hotel with what GA4 returns now" :collapsible="false" class="mb-3">
+        @if ($links->isEmpty())
+            <p class="small text-muted mb-0">No hotel has a GA4 property linked yet.</p>
+        @else
+            <form method="POST" action="{{ route('admin.integrations.google.diagnose') }}" class="row g-2 align-items-end mb-3" id="diagnose-form">
+                @csrf
+                <div class="col-md-5">
+                    <label for="diag-hotel" class="form-label small mb-0">Team and hotel</label>
+                    <select id="diag-hotel" name="hotel" class="form-select form-select-sm">
+                        @foreach ($links as $link)
+                            <option value="{{ $link->hotel_id }}" @selected((int) old('hotel') === $link->hotel_id)>{{ $link->hotel->team?->name }} - {{ $link->hotel->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="diag-date" class="form-label small mb-0">Day to compare live</label>
+                    <input id="diag-date" type="date" name="date" value="{{ old('date', now()->subDays(10)->toDateString()) }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-4 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">Run diagnostics</button>
+                    <button type="submit" class="btn btn-outline-danger btn-sm" formaction="{{ route('admin.integrations.google.resync') }}" id="resync-button"
+                            onclick="return confirm('Copy the 13 months of GA4 data again for this team? Old rows stay until each window is replaced, so reports never go empty. It takes a while.')">Re-sync from scratch</button>
+                </div>
+            </form>
+            <p class="small text-muted">Run diagnostics is read-only and makes a few GA4 requests. Re-sync copies the GA4 history again for every linked hotel of the chosen team (Search Console is not touched). The same checks run from the command line with <code>php artisan citevanta:google-diagnose</code>; <code>php artisan citevanta:google-resync</code> does the re-sync.</p>
+        @endif
+
+        @if (session('diagnostics'))
+            <pre id="diagnostics-output" class="small bg-body-tertiary border rounded p-3 mb-0" style="overflow-x: auto; white-space: pre; max-height: 36rem">{{ implode("\n", session('diagnostics')) }}</pre>
+        @endif
+    </x-card>
+
     <div class="row gx-3">
         <div class="col-xl-7">
             <x-card title="Service account" subtitle="One Google service account reads GA4 and Search Console for every hotel that shares access with it" :collapsible="false" :flush="true">

@@ -54,7 +54,7 @@ class ReportController extends Controller
             $traffic = new AiTrafficReport($hotel, $period);
             $demand = new BookingDemandReport($hotel, $period);
             $data += [
-                'summary' => $traffic->summary(), 'charts' => $traffic->charts(), 'tables' => $traffic->tables(),
+                'summary' => $traffic->summary(), 'charts' => $traffic->charts(), 'completeThrough' => $traffic->isIncomplete() ? $traffic->completeThrough() : null, 'tables' => $traffic->tables(),
                 'findings' => $this->findings->forAiTraffic($hotel, $traffic),
                 'warnings' => ReportAvailability::warnings($hotel, ['receiving', 'purchases', 'cross_domain', 'ai_referrals']),
                 'bookingSetup' => ReportAvailability::bookingDates($hotel),

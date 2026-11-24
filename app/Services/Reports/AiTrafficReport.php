@@ -24,7 +24,28 @@ final class AiTrafficReport
     /** @var array<string, list<string>> */
     private array $sourceCache = [];
 
+    private ?Carbon $completeThrough = null;
+
+    private bool $completeThroughKnown = false;
+
     public function __construct(private readonly Hotel $hotel, private readonly ReportPeriod $period) {}
+
+    /** Last day fully copied from GA4, or null when nothing is stored. */
+    public function completeThrough(): ?Carbon
+    {
+        if (! $this->completeThroughKnown) {
+            $this->completeThrough = ReportAvailability::ga4CompleteThrough($this->hotel);
+            $this->completeThroughKnown = true;
+        }
+
+        return $this->completeThrough;
+    }
+
+    /** The report period reaches past the days that are copied, so the latest days are blank. */
+    public function isIncomplete(): bool
+    {
+        return $this->completeThrough() !== null && $this->completeThrough()->lt($this->period->to);
+    }
 
     /**
      * AI sessions, purchases and revenue, and their share of everything, for the period and (when available) the same days last year.
@@ -107,7 +128,7 @@ final class AiTrafficReport
         $size = $this->period->bucketDays();
         $count = (int) ceil($this->period->days() / $size);
         $compare = $this->period->canCompare($this->hotel->id);
-        $current = $this->buckets($this->period->from, $this->period->to, $size, $count);
+        $current = $this->blankUnsynced($this->buckets($this->period->from, $this->period->to, $size, $count), $size);
         $previous = $compare ? $this->buckets($this->period->previousYearFrom(), $this->period->previousYearTo(), $size, $count) : null;
 
         $labels = [];
@@ -210,6 +231,31 @@ final class AiTrafficReport
             'conversion' => $row['sessions'] > 0 ? $row['purchases'] / $row['sessions'] : 0.0,
             'revenue' => round((float) $row['revenue'], 2),
         ], $rows);
+    }
+
+    /**
+     * Buckets that end after the last fully copied day are blank (null), not zero.
+     *
+     * @param  list<array{sessions: int, purchases: int}>  $buckets
+     * @return list<array{sessions: int|null, purchases: int|null}>
+     */
+    private function blankUnsynced(array $buckets, int $size): array
+    {
+        $through = $this->completeThrough();
+
+        if ($through === null || ! $this->isIncomplete()) {
+            return $buckets;
+        }
+
+        foreach (array_keys($buckets) as $i) {
+            $end = $this->period->from->copy()->addDays(($i + 1) * $size - 1)->min($this->period->to);
+
+            if ($end->gt($through)) {
+                $buckets[$i] = ['sessions' => null, 'purchases' => null];
+            }
+        }
+
+        return $buckets;
     }
 
     /**

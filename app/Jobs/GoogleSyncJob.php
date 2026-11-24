@@ -8,10 +8,12 @@ use App\Services\Google\GoogleSync;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\RateLimited;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
- * Exactly one Google API call of a sync (see GoogleSync). A further page is
- * another job. Quota errors wait and retry; access errors stop and are
+ * Exactly one Google API call of a sync (see GoogleSync). A further page, and the next
+ * date window, is another job. Quota errors wait and retry; access errors stop and are
  * shown on Settings > Connect Google.
  */
 class GoogleSyncJob implements ShouldQueue
@@ -29,6 +31,8 @@ class GoogleSyncJob implements ShouldQueue
         public string $from,
         public string $to,
         public int $offset = 0,
+        public ?string $until = null,
+        public ?string $batch = null,
     ) {
         $this->onQueue('google');
     }
@@ -48,7 +52,8 @@ class GoogleSyncJob implements ShouldQueue
         }
 
         try {
-            $next = $sync->run($link, $this->type, $this->from, $this->to, $this->offset);
+            $batch = $this->batch ?? ($this->offset === 0 ? Str::lower(Str::random(12)) : null);
+            $next = $sync->run($link, $this->type, $this->from, $this->to, $this->offset, $batch);
         } catch (GoogleApiException $e) {
             if ($e->isQuota() && $this->job !== null) {
                 $this->release(900);
@@ -67,7 +72,15 @@ class GoogleSyncJob implements ShouldQueue
         }
 
         if ($next !== null) {
-            self::dispatch($this->linkId, $this->type, $this->from, $this->to, $next);
+            self::dispatch($this->linkId, $this->type, $this->from, $this->to, $next, $this->until, $batch);
+
+            return;
+        }
+
+        // A window is complete: start the next one, so data fills in from the oldest date to the newest.
+        if ($this->until !== null && $this->to < $this->until) {
+            $from = Carbon::parse($this->to)->addDay()->toDateString();
+            self::dispatch($this->linkId, $this->type, $from, GoogleSync::windowEnd($from, $this->until), 0, $this->until);
         }
     }
 }

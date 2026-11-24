@@ -21,6 +21,7 @@ use App\Services\Google\GoogleLinks;
 use App\Services\Google\GoogleServiceAccount;
 use App\Services\Google\GoogleSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -454,12 +455,34 @@ class GoogleConnectionTest extends TestCase
         Bus::fake();
 
         app(GoogleSync::class)->schedule($link);
+        $first = now()->subDay()->subMonthsNoOverflow(13)->toDateString();
         Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC
-            && $job->from === now()->subDay()->subMonthsNoOverflow(13)->toDateString() && $job->to === now()->subDay()->toDateString());
+            && $job->from === $first && $job->to === GoogleSync::windowEnd($first, now()->subDay()->toDateString()) && $job->until === now()->subDay()->toDateString());
 
         Bus::fake();
         app(GoogleSync::class)->schedule($link->fresh());
         Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC && $job->from === now()->subDays(3)->toDateString());
+    }
+
+    public function test_a_first_sync_reads_one_window_after_the_other_oldest_first_and_orders_the_rows(): void
+    {
+        $this->useRealGoogle();
+        [, $hotel] = $this->privateHotel();
+        $link = HotelGoogleLink::create(['hotel_id' => $hotel->id, 'team_id' => $hotel->team_id, 'ga4_property' => 'properties/111']);
+        Http::fake(['analyticsdata.googleapis.com/*' => Http::response(['rows' => [], 'rowCount' => 0])]);
+        Bus::fake();
+
+        $until = now()->subDay()->toDateString();
+        $from = now()->subDays(70)->toDateString();
+        $job = new GoogleSyncJob($link->id, GoogleSync::GA4_TRAFFIC, $from, GoogleSync::windowEnd($from, $until), 0, $until);
+        $job->handle(app(GoogleSync::class));
+
+        $nextFrom = Carbon::parse(GoogleSync::windowEnd($from, $until))->addDay()->toDateString();
+        Bus::assertDispatched(GoogleSyncJob::class, fn ($next) => $next->from === $nextFrom && $next->offset === 0 && $next->until === $until
+            && $next->to === GoogleSync::windowEnd($nextFrom, $until));
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'analyticsdata')
+            && $request['orderBys'][0] === ['dimension' => ['dimensionName' => 'date']] && ! isset($request['dimensionFilter']));
+        $this->assertSame(31, (int) Carbon::parse($from)->diffInDays(Carbon::parse(GoogleSync::windowEnd($from, $until))) + 1);
     }
 
     public function test_only_properties_and_sites_the_service_account_can_see_and_of_the_hotel_domain_are_offered(): void

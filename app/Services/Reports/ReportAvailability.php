@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Hotel;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -114,6 +115,26 @@ final class ReportAvailability
         }
 
         return $warnings;
+    }
+
+    /**
+     * The last day GA4 data is fully copied. While jobs are waiting, rows arrive oldest first, so the newest
+     * stored day may be half copied and is not counted. Null when nothing is stored yet.
+     */
+    public static function ga4CompleteThrough(Hotel $hotel): ?Carbon
+    {
+        $latest = DB::table('ga4_traffic_daily')->where('hotel_id', $hotel->id)->max('date');
+        $yesterday = Carbon::yesterday();
+
+        if ($latest === null) {
+            return null;
+        }
+
+        if (self::syncRunning()) {
+            return Carbon::parse($latest)->subDay()->min($yesterday);
+        }
+
+        return $hotel->googleLink?->last_sync_error !== null ? Carbon::parse($latest)->min($yesterday) : $yesterday;
     }
 
     /** Google sync jobs are waiting in the queue: the data is still arriving. */
