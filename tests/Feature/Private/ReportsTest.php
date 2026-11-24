@@ -8,6 +8,7 @@ use App\Models\Hotel;
 use App\Models\HotelGoogleLink;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Google\GoogleApi;
 use App\Services\Google\GoogleSync;
 use App\Services\Reports\AiTrafficReport;
 use App\Services\Reports\BookingDemandReport;
@@ -17,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 /**
@@ -196,29 +198,31 @@ class ReportsTest extends TestCase
     {
         [$owner, $hotel] = $this->privateHotel();
         $this->traffic($hotel, '2026-11-10', 'chatgpt.com', ['sessions' => 30]);
+        $year = fn (string $range = '28d') => ReportPeriod::resolve(['range' => $range, 'compare' => 'year'], ReportPeriod::firstGa4Day($hotel->id));
 
-        $this->assertNull((new AiTrafficReport($hotel, ReportPeriod::make('28d')))->summary()['previous']);
-        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertSee('not available for this range yet');
+        $this->assertNull((new AiTrafficReport($hotel, $year()))->summary()['previous'], 'the data starts 10 Nov 2026');
+        $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'compare' => 'year']))->assertSee('Same period last year is not available for this range: data starts 10 Nov 2026');
 
         $this->traffic($hotel, '2025-11-10', 'chatgpt.com', ['sessions' => 20, 'purchases' => 1]);
         $this->traffic($hotel, '2025-11-10', 'google', ['sessions' => 80]);
-        $this->traffic($hotel, '2025-10-28', 'google', ['sessions' => 0]); // the data starts before the old period
-        $previous = (new AiTrafficReport($hotel, ReportPeriod::make('28d')))->summary()['previous'];
+        $this->traffic($hotel, '2025-10-20', 'google', ['sessions' => 0]); // the data starts before the old period
+        $previous = (new AiTrafficReport($hotel, $year()))->summary()['previous'];
 
         $this->assertSame(20, $previous['ai_sessions']);
         $this->assertSame(100, $previous['all_sessions']);
-        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertSee('+50% vs last year');
+        $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'compare' => 'year']))->assertSee('+50% vs same period last year');
 
-        $this->assertNull((new AiTrafficReport($hotel, ReportPeriod::make('12m')))->summary()['previous'], 'a year back needs two years of data');
+        $this->assertNull((new AiTrafficReport($hotel, $year('12m')))->summary()['previous'], 'a year back needs two years of data');
     }
 
     public function test_the_range_picker_changes_the_period(): void
     {
         [$owner, $hotel] = $this->privateHotel();
+        $this->traffic($hotel, '2026-09-01', 'chatgpt.com');
         $this->traffic($hotel, '2026-11-10', 'chatgpt.com');
 
         $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertSee('Last 28 days (27 Oct 2026 to 23 Nov 2026)');
-        $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'range' => '90d']))->assertSee('Last 90 days (26 Aug 2026 to 23 Nov 2026)');
+        $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'range' => '90d']))->assertSee('Last 90 days (1 Sep 2026 to 23 Nov 2026)');
         $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'range' => '12m']))->assertSee('Last 12 months');
         $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'range' => 'nonsense']))->assertSee('Last 28 days');
     }
@@ -240,7 +244,7 @@ class ReportsTest extends TestCase
         $this->assertGreaterThan(0, $expected);
         $this->assertSame($expected, (new AiTrafficReport($hotel, ReportPeriod::make('28d')))->summary()['current']['ai_sessions']);
 
-        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('Demand by date')->assertSee('Demand by check-in date')->assertSee('id="demand-calendar"', false)->assertSee('Length of stay');
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('Searches by date')->assertSee('Searches by check-in date')->assertSee('id="demand-calendar"', false)->assertSee('Length of stay');
         $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'report' => 'search']))->assertOk()->assertSee('Top queries')->assertSee('Seasonal query groups');
     }
 
@@ -301,7 +305,7 @@ class ReportsTest extends TestCase
         $this->assertSame([[3, 300, 100, 5], [2, 50, 0, 0]], $day['stays'], 'the most asked stay length comes first');
 
         $page = $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk();
-        $page->assertSee('Most searched check-in date ahead:')->assertSee('Thu 10 Dec')->assertSee('450 looks and started bookings');
+        $page->assertSee('Most searched check-in date ahead:')->assertSee('Thu 10 Dec')->assertSee('450 searches and started bookings');
         $page->assertSee('from all visitors, not only from AI assistants');
         $this->assertStringContainsString('"2026-12-10":{"l":350,"s":100,"b":5,"d":450', str_replace(['&quot;', '\u0022', '\/'], ['"', '"', '/'], $page->getContent()));
     }
@@ -349,6 +353,36 @@ class ReportsTest extends TestCase
             ->assertSee('Where AI visitors come from')->assertSee('Australia')->assertSee('30 · 75%')->assertSee('Germany');
     }
 
+    public function test_stay_dates_on_the_search_dates_event_are_synced_and_shown_as_searches_by_date(): void
+    {
+        [$owner, $hotel, $link] = $this->privateHotel();
+        $this->traffic($hotel, '2026-11-10', 'chatgpt.com');
+        $captured = [];
+        $this->mock(GoogleApi::class, function (MockInterface $mock) use (&$captured): void {
+            $mock->shouldReceive('runReport')->once()->andReturnUsing(function (string $property, array $body) use (&$captured): array {
+                $captured = $body;
+                $row = fn (string $event, string $in, string $out, int $count) => ['dimensionValues' => array_map(fn ($v) => ['value' => $v], ['20261110', $event, $in, $out]), 'metricValues' => [['value' => (string) $count]]];
+
+                return ['rows' => [$row('search_dates', '2026-12-24', '2026-12-27', 40), $row('search_dates', '2026-12-31', '2027-01-02', 10), $row('some_new_event', '2026-12-24', '2026-12-26', 5), $row('page_view', '(not set)', '(not set)', 900)], 'rowCount' => 4];
+            });
+        });
+
+        app(GoogleSync::class)->run($link, GoogleSync::GA4_BOOKING_DATES, '2026-11-10', '2026-11-10', 0, 'b1');
+
+        $this->assertArrayNotHasKey('filter', $captured['dimensionFilter'] ?? [], 'no event names are listed in the request');
+        $this->assertStringNotContainsString('inListFilter', json_encode($captured));
+        $this->assertSame('customEvent:checkin_date', $captured['dimensionFilter']['notExpression']['filter']['fieldName'], 'only events that carry the check-in date are read');
+        $this->assertSame(3, DB::table('ga4_booking_dates_daily')->where('hotel_id', $hotel->id)->count(), 'rows without a check-in date are skipped');
+
+        $report = new BookingDemandReport($hotel, ReportPeriod::make('28d'));
+        $byDate = collect($report->byCheckin())->keyBy('date');
+        $this->assertSame(45, $byDate['2026-12-24']['looked'], 'search_dates and any other event with stay dates count as searches');
+        $this->assertSame(10, $byDate['2026-12-31']['looked']);
+
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()
+            ->assertSee('Searches by date')->assertSee('These are searches, not bookings')->assertDontSee('Demand by date');
+    }
+
     public function test_the_length_of_stay_chart_is_left_out_when_no_stay_length_is_known(): void
     {
         [$owner, $hotel] = $this->privateHotel();
@@ -378,7 +412,7 @@ class ReportsTest extends TestCase
         Bus::fake();
 
         app(GoogleSync::class)->schedule($link);
-        Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_BOOKING_DATES && $job->from === now()->subDay()->subMonthsNoOverflow(13)->toDateString());
+        Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_BOOKING_DATES && $job->from === now()->subDay()->subMonthsNoOverflow(25)->toDateString());
         $this->assertNotNull($link->fresh()->booking_dates_synced_at);
 
         Bus::fake();

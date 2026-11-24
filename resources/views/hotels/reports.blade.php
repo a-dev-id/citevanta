@@ -1,34 +1,18 @@
 @php
     $money = fn ($value) => trim($currency.' '.number_format((float) $value, 0));
-    $change = function ($now, $before) {
+    $change = function ($now, $before) use ($period) {
         if ($before === null || (float) $before === 0.0) {
             return null;
         }
 
         $percent = ((float) $now - (float) $before) / (float) $before * 100;
 
-        return ($percent >= 0 ? '+' : '').number_format($percent, 0).'% vs last year';
+        return ($percent >= 0 ? '+' : '').number_format($percent, 0).'% '.$period->compareShortName();
     };
 @endphp
 
 <x-layouts::app title="Reports" :breadcrumbs="['Hotels' => route('hotels.index'), $hotel->name => route('hotels.show', $hotel), 'Reports' => null]">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-        <ul class="nav nav-pills" aria-label="Report">
-            <li class="nav-item"><a @class(['nav-link', 'active' => $tab === 'ai']) href="{{ route('hotels.reports', [$hotel, 'range' => $period->key, 'report' => 'ai']) }}">AI traffic and bookings</a></li>
-            <li class="nav-item"><a @class(['nav-link', 'active' => $tab === 'search']) href="{{ route('hotels.reports', [$hotel, 'range' => $period->key, 'report' => 'search']) }}">Google Search</a></li>
-        </ul>
-
-        <div class="btn-group" role="group" aria-label="Date range">
-            @foreach (['28d' => 'Last 28 days', '90d' => 'Last 90 days', '12m' => 'Last 12 months'] as $key => $label)
-                <a href="{{ route('hotels.reports', [$hotel, 'range' => $key, 'report' => $tab]) }}" @class(['btn btn-sm', 'btn-primary' => $period->key === $key, 'btn-outline-secondary' => $period->key !== $key])
-                   @if ($period->key === $key) aria-current="true" @endif>{{ $label }}</a>
-            @endforeach
-        </div>
-    </div>
-
-    <p class="small text-muted"><i class="fa-regular fa-calendar me-1" aria-hidden="true"></i>{{ $period->label() }}
-        @if ($hotel->googleLink?->last_synced_at) · data synced {{ $hotel->googleLink->last_synced_at->diffForHumans() }} @endif
-    </p>
+    <x-report-toolbar :period="$period" :hotel="$hotel" :tab="$tab" />
 
     @if ($empty)
         <x-card :collapsible="false">
@@ -46,6 +30,13 @@
                 <div>{{ $warning['message'] }} <a href="{{ route('settings.google') }}" class="alert-link">Tracking check</a></div>
             </div>
         @endforeach
+
+        @if ($dataWarning ?? null)
+            <div class="alert alert-warning d-flex gap-2" role="alert" id="data-check-warning">
+                <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+                <div>{{ $dataWarning }} The numbers below may be too high or too low until the next daily check agrees.</div>
+            </div>
+        @endif
 
         @isset($completeThrough)
             <div class="alert alert-info d-flex gap-2" role="status">
@@ -93,10 +84,6 @@
                 @endforeach
             </div>
 
-            @if ($before === null)
-                <p class="small text-muted"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>The same period last year is shown when 13 months of data exist. It is not available for this range yet.</p>
-            @endif
-
             <div class="row g-3 mb-3">
                 <div class="col-xl-6">
                     <x-card title="AI sessions" :collapsible="false">
@@ -114,7 +101,7 @@
                 <div class="mb-3"><x-report-table :table="$table" :hotel="$hotel" :period="$period" :currency="$currency" /></div>
             @endforeach
 
-            <h2 class="h5 mt-4">Demand by date</h2>
+            <h2 class="h5 mt-4">Searches by date</h2>
             @if ($bookingSetup)
                 <x-card :collapsible="false" class="mb-3">
                     <x-empty-state icon="fa-calendar-days" :text="$bookingSetup['title']">
@@ -129,13 +116,13 @@
                 <div x-data="{ tab: 'popular' }" id="demand-section">
                     <div class="cv-tabs mb-3" role="tablist" aria-label="Demand view">
                         <button type="button" role="tab" id="tab-popular" :aria-selected="tab === 'popular' ? 'true' : 'false'" :class="{ 'is-active': tab === 'popular' }" @click="tab = 'popular'">Popular dates</button>
-                        <button type="button" role="tab" id="tab-every" :aria-selected="tab === 'every' ? 'true' : 'false'" :class="{ 'is-active': tab === 'every' }" @click="tab = 'every'">Every date <span class="cv-tabs__count">{{ count($demandDates) }}</span></button>
+                        <button type="button" role="tab" id="tab-every" :aria-selected="tab === 'every' ? 'true' : 'false'" :class="{ 'is-active': tab === 'every' }" @click="tab = 'every'">Every date <span class="cv-tabs__count">{{ $demandDateCount }}</span></button>
                     </div>
 
                     <div x-show="tab === 'popular'" role="tabpanel" aria-labelledby="tab-popular">
                         <div class="alert alert-light border small d-flex gap-2" role="note">
                             <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
-                            <span>The stay dates guests searched for on your website and booking engine, and the ones they started to book. Each night is shaded by how often it was looked at; hold the mouse over a night to see the stays behind it. This is GA4 data from all visitors, not only from AI assistants.</span>
+                            <span>The stay dates guests searched for in your booking engine, and the ones they started to book. These are searches, not bookings. Each night is shaded by how often it was searched; hold the mouse over a night to see the stays behind it. This is GA4 data from all visitors, not only from AI assistants.</span>
                         </div>
                         <x-card :collapsible="false" class="mb-3">
                             <x-demand-calendar :calendar="$demandCalendar" />
@@ -147,7 +134,7 @@
                     </div>
 
                     <div x-show="tab === 'every'" x-cloak role="tabpanel" aria-labelledby="tab-every">
-                        <div class="mb-3"><x-report-table :table="$demandTables['demand-checkin']" :rows="$demandDates" :limit="200" :hotel="$hotel" :period="$period" /></div>
+                        <div class="mb-3"><x-report-table :table="$demandTables['demand-checkin']" :hotel="$hotel" :period="$period" /></div>
                     </div>
 
                 </div>
@@ -161,9 +148,10 @@
             @endif
         @else
             <div class="row g-3 mb-3" id="search-summary">
-                @foreach ([['Clicks', number_format($totals['clicks'])], ['Impressions', number_format($totals['impressions'])], ['Click rate', number_format($totals['ctr'] * 100, 1).'%'], ['Average position', number_format($totals['position'], 1)]] as [$label, $value])
+                @foreach ([['Clicks', number_format($totals['clicks']), $change($totals['clicks'], $previousTotals['clicks'] ?? null)], ['Impressions', number_format($totals['impressions']), $change($totals['impressions'], $previousTotals['impressions'] ?? null)], ['Click rate', number_format($totals['ctr'] * 100, 1).'%', $change($totals['ctr'], $previousTotals['ctr'] ?? null)], ['Average position', number_format($totals['position'], 1), $change($totals['position'], $previousTotals['position'] ?? null)]] as [$label, $value, $delta])
                     <div class="col-6 col-md-3"><div class="card cv-card h-100"><div class="card-body">
                         <div class="text-muted small">{{ $label }}</div><div class="fs-3 fw-semibold">{{ $value }}</div>
+                        @if ($delta)<div class="small">{{ $delta }}</div>@endif
                     </div></div></div>
                 @endforeach
             </div>

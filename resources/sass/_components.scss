@@ -1174,3 +1174,92 @@ $cv-heat-levels: (0: 0%, 1: 14%, 2: 30%, 3: 50%, 4: 75%, 5: 100%);
     text-align: right;
     color: var(--bs-secondary-color);
 }
+
+
+// -- Reports date range picker: presets and a two-month calendar --------------------
+.cv-range {
+    position: relative;
+}
+
+.cv-range__panel {
+    position: absolute;
+    z-index: 1040;
+    top: calc(100% + .35rem);
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    width: max-content;
+    max-width: min(46rem, 92vw);
+    padding: .75rem;
+    border: 1px solid $cv-card-border-color;
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .18);
+}
+
+.cv-range__presets {
+    display: flex;
+    flex-direction: column;
+    min-width: 13rem;
+}
+
+.cv-range__preset {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .35rem .6rem;
+    border: 0;
+    border-radius: .35rem;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: $cv-font-size-sm;
+    text-align: left;
+    text-decoration: none;
+
+    &:hover { background: var(--bs-tertiary-bg); }
+    &.is-active { background: rgba(var(--bs-primary-rgb), .12); font-weight: 600; }
+}
+
+.cv-range__months {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.cv-range__month { width: 14.5rem; }
+
+.cv-range__title {
+    margin-bottom: .35rem;
+    font-size: $cv-font-size-sm;
+    font-weight: 600;
+    text-align: center;
+}
+
+.cv-range__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.cv-range__dow {
+    font-size: .7rem;
+    color: var(--bs-secondary-color);
+    text-align: center;
+}
+
+.cv-range__day {
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: .3rem;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: .8rem;
+
+    &:hover:not(:disabled) { background: var(--bs-tertiary-bg); }
+    &:disabled { opacity: .3; cursor: not-allowed; }
+    &.is-in { background: rgba(var(--bs-primary-rgb), .15); border-radius: 0; }
+    &.is-edge { background: var(--bs-primary); color: #fff; }
+}

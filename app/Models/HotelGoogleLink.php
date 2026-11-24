@@ -26,11 +26,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $last_synced_at
  * @property CarbonInterface|null $booking_dates_synced_at
  * @property string|null $last_sync_error
+ * @property array<string, mixed>|null $data_check stored against live GA4 after a sync: status ok|mismatch, checked_at, from, to, live, stored
  * @property-read Hotel $hotel
  */
 #[Fillable([
     'hotel_id', 'team_id', 'ga4_property', 'ga4_property_name', 'ga4_currency', 'ga4_timezone', 'gsc_site',
-    'date_mapping', 'health', 'health_checked_at', 'first_synced_at', 'last_synced_at', 'booking_dates_synced_at', 'last_sync_error',
+    'date_mapping', 'health', 'health_checked_at', 'first_synced_at', 'last_synced_at', 'booking_dates_synced_at', 'last_sync_error', 'data_check',
 ])]
 class HotelGoogleLink extends Model
 {
@@ -55,6 +56,7 @@ class HotelGoogleLink extends Model
             'first_synced_at' => 'datetime',
             'last_synced_at' => 'datetime',
             'booking_dates_synced_at' => 'datetime',
+            'data_check' => 'array',
         ];
     }
 }

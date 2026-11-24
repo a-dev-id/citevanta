@@ -149,8 +149,8 @@ return [
     |--------------------------------------------------------------------------
     */
     'google' => [
-        // First sync, months back: GA4 13 (this year vs last year), Search Console 16 (its maximum).
-        'ga4_first_sync_months' => 13,
+        // First sync, months back: GA4 25 (two years, to compare a year with the year before), Search Console 16 (its maximum).
+        'ga4_first_sync_months' => (int) env('GA4_FIRST_SYNC_MONTHS', 25),
         'gsc_first_sync_months' => 16,
         // Daily sync re-reads the last days, because Google adds late data.
         'ga4_daily_days' => 3,
@@ -213,7 +213,7 @@ return [
 
     'reports' => [
         // Date range picker: key => days.
-        'ranges' => ['28d' => 28, '90d' => 90, '12m' => 365],
+        'ranges' => ['7d' => 7, '28d' => 28, '30d' => 30, '90d' => 90, '12m' => 365],
         // Low-CTR opportunities: enough impressions, a click rate below this, ranking better than this position.
         'opportunity_min_impressions' => (int) env('REPORT_OPPORTUNITY_MIN_IMPRESSIONS', 100),
         'opportunity_max_ctr' => 0.03,

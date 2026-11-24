@@ -15,6 +15,19 @@ Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_a
 
 ---
 
+## Not released yet: Reports date picker, comparison and tables
+
+(These notes move into the next release's list when it is built.)
+
+- **Reports:** date picker with presets and a custom two-month calendar (kept in the URL, both tabs); comparison with the previous period (default) or the same period last year (optionally matching the day of week), disabled with a reason when the data does not reach back far enough, never showing missing days as zero; dashed comparison lines, % change on the cards, previous and change columns; every table paged on the server (10, 50, 100 rows, remembered per user), sortable over all rows, with the page, sort and size in the URL; CSV always has every row of the range (and the comparison columns).
+- **GA4 history is 25 months** (`GA4_FIRST_SYNC_MONTHS`, default 25). **Backfill older data** (Admin > Integrations > Google, or `php artisan citevanta:google-backfill {team}`) reads only the older windows for teams already synced.
+- Findings no longer name "(not set)" as a page.
+- **New migrations:** `2026_11_24_135108_add_data_check_to_hotel_google_links` and `2026_11_24_140130_add_report_page_size_to_users` (each adds one empty column; nothing is deleted).
+- **New `.env` key (optional):** `GA4_FIRST_SYNC_MONTHS=25`.
+- **Also not released yet (from the earlier follow-ups):** sync jobs that no longer run out of attempts (no more `MaxAttemptsExceeded`), are unique per step and retry safely after a kill; a daily gap check (`citevanta:google-heal`) that queues missing days; a self-check after each sync that warns "data may be incomplete" when stored sessions or purchases differ from live GA4 by more than 2%; and **Searches by date** (the stay dates now come from every event that carries the check-in date, including `search_dates`).
+
+---
+
 ## What changed in 1.7.1 (on top of 1.7.0)
 
 **Google data now arrives complete and in order** (fixes AI sessions and purchases that looked far too low next to Looker Studio)

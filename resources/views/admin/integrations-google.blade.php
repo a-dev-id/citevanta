@@ -1,6 +1,13 @@
 <x-layouts::app title="Google" :breadcrumbs="['Admin' => null, 'Integrations' => null, 'Google' => null]">
     <x-flash />
 
+    @foreach ($dataWarnings as $warning)
+        <div class="alert alert-warning d-flex gap-2" role="alert">
+            <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+            <div><strong>{{ $warning['team'] }} - {{ $warning['hotel'] }}:</strong> {{ $warning['text'] }}@if ($warning['checked']) <span class="text-muted small">(checked {{ \Illuminate\Support\Carbon::parse($warning['checked'])->diffForHumans() }})</span>@endif Run diagnostics below, then Re-sync from scratch.</div>
+        </div>
+    @endforeach
+
     <x-card title="Diagnostics and re-sync" subtitle="Compare what we stored from GA4 for a hotel with what GA4 returns now" :collapsible="false" class="mb-3">
         @if ($links->isEmpty())
             <p class="small text-muted mb-0">No hotel has a GA4 property linked yet.</p>
@@ -21,11 +28,13 @@
                 </div>
                 <div class="col-md-4 d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn-primary btn-sm">Run diagnostics</button>
+                    <button type="submit" class="btn btn-outline-secondary btn-sm" formaction="{{ route('admin.integrations.google.backfill') }}" id="backfill-button"
+                            onclick="return confirm('Read the older GA4 days (back to {{ (int) config('citevanta.google.ga4_first_sync_months', 25) }} months) for this team? Only days older than the oldest stored day are read; the newer data is not touched.')">Backfill older data</button>
                     <button type="submit" class="btn btn-outline-danger btn-sm" formaction="{{ route('admin.integrations.google.resync') }}" id="resync-button"
-                            onclick="return confirm('Copy the 13 months of GA4 data again for this team? Old rows stay until each window is replaced, so reports never go empty. It takes a while.')">Re-sync from scratch</button>
+                            onclick="return confirm('Copy the {{ (int) config('citevanta.google.ga4_first_sync_months', 25) }} months of GA4 data again for this team? Old rows stay until each window is replaced, so reports never go empty. It takes a while.')">Re-sync from scratch</button>
                 </div>
             </form>
-            <p class="small text-muted">Run diagnostics is read-only and makes a few GA4 requests. Re-sync copies the GA4 history again for every linked hotel of the chosen team (Search Console is not touched). The same checks run from the command line with <code>php artisan citevanta:google-diagnose</code>; <code>php artisan citevanta:google-resync</code> does the re-sync.</p>
+            <p class="small text-muted">Run diagnostics is read-only and makes a few GA4 requests. Backfill older data reads only the days older than the oldest stored day (for teams synced with fewer months). Re-sync copies the whole GA4 history again for every linked hotel of the chosen team (Search Console is not touched). The same checks run from the command line with <code>php artisan citevanta:google-diagnose</code>; <code>php artisan citevanta:google-resync</code> does the re-sync and <code>php artisan citevanta:google-backfill</code> the backfill.</p>
         @endif
 
         @if (session('diagnostics'))

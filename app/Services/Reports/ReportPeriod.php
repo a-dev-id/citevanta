@@ -6,25 +6,135 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The date range of a report: the last 28 days, 90 days or 12 months,
- * ending yesterday (Google data for today is incomplete), and the same
- * dates one year earlier for the comparison.
+ * The date range of a report and what it is compared with.
+ *
+ * Presets (last 7, 28, 30, 90 days, this month, last month, last 12 months, this year) and a custom range.
+ * A range never starts before the first synced day, and a custom range never ends after the last fully synced
+ * day. The comparison is nothing, the previous period (same length, directly before) or the same period last
+ * year (optionally shifted by 52 weeks so the weekdays match). A comparison that would start before the first
+ * synced day is not offered: its reason ("data starts ...") is kept in $unavailable. Days that were never
+ * synced are not zero, so they are never used.
  */
 final readonly class ReportPeriod
 {
+    public const PRESETS = [
+        '7d' => 'Last 7 days',
+        '28d' => 'Last 28 days',
+        '30d' => 'Last 30 days',
+        '90d' => 'Last 90 days',
+        'this_month' => 'This month',
+        'last_month' => 'Last month',
+        '12m' => 'Last 12 months',
+        'this_year' => 'This year',
+    ];
+
+    public const COMPARE = ['none' => 'No comparison', 'previous' => 'Previous period', 'year' => 'Same period last year'];
+
+    /**
+     * @param  array<string, string>  $unavailable  comparison => why it cannot be used
+     */
     public function __construct(
         public string $key,
         public Carbon $from,
         public Carbon $to,
+        public string $compare = 'none',
+        public bool $matchWeekday = false,
+        public ?Carbon $compareFrom = null,
+        public ?Carbon $compareTo = null,
+        public ?Carbon $earliest = null,
+        public ?Carbon $latest = null,
+        public array $unavailable = [],
     ) {}
 
+    /**
+     * A preset without a comparison (and without knowing the synced bounds).
+     */
     public static function make(?string $key): self
     {
-        $ranges = (array) config('citevanta.reports.ranges');
-        $key = isset($ranges[$key]) ? (string) $key : (string) array_key_first($ranges);
-        $to = Carbon::yesterday();
+        return self::resolve(['range' => $key, 'compare' => 'none']);
+    }
 
-        return new self($key, $to->copy()->subDays((int) $ranges[$key] - 1), $to);
+    /**
+     * @param  array<string, mixed>  $input  range (a preset key), from, to (Y-m-d), compare (none|previous|year), dow (1)
+     */
+    public static function resolve(array $input, ?Carbon $earliest = null, ?Carbon $latest = null): self
+    {
+        $yesterday = Carbon::yesterday();
+        $earliest = $earliest?->copy()->startOfDay();
+        $latest = $latest?->copy()->startOfDay();
+        $from = self::date($input['from'] ?? null);
+        $to = self::date($input['to'] ?? null);
+
+        if ($from !== null && $to !== null) {
+            $key = 'custom';
+
+            if ($from->gt($to)) {
+                [$from, $to] = [$to, $from];
+            }
+
+            $to = $to->min($latest ?? $yesterday);
+            $from = $from->min($to);
+        } else {
+            $key = array_key_exists((string) ($input['range'] ?? ''), self::PRESETS) ? (string) $input['range'] : '28d';
+            [$from, $to] = self::presetRange($key);
+        }
+
+        if ($earliest !== null) {
+            $from = $from->max($earliest);
+            $to = $to->max($from);
+        }
+
+        $matchWeekday = ! empty($input['dow']) && (string) $input['dow'] !== '0';
+        $requested = array_key_exists((string) ($input['compare'] ?? ''), self::COMPARE) ? (string) $input['compare'] : 'previous';
+        $unavailable = [];
+        $ranges = [];
+
+        foreach (['previous', 'year'] as $mode) {
+            $ranges[$mode] = self::compareRange($mode, $from, $to, $matchWeekday);
+
+            if ($earliest !== null && $ranges[$mode][0]->lt($earliest)) {
+                $unavailable[$mode] = 'data starts '.$earliest->format('j M Y');
+            }
+        }
+
+        $compare = isset($ranges[$requested]) && ! isset($unavailable[$requested]) ? $requested : 'none';
+        [$compareFrom, $compareTo] = $compare === 'none' ? [null, null] : $ranges[$compare];
+
+        return new self($key, $from, $to, $compare, $matchWeekday, $compareFrom, $compareTo, $earliest, $latest, $unavailable);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function presetRange(string $key): array
+    {
+        $yesterday = Carbon::yesterday();
+        $lastMonth = Carbon::today()->subMonthNoOverflow();
+
+        return match ($key) {
+            'this_month' => [$yesterday->copy()->startOfMonth(), $yesterday],
+            'last_month' => [$lastMonth->copy()->startOfMonth(), $lastMonth->copy()->endOfMonth()->startOfDay()],
+            'this_year' => [$yesterday->copy()->startOfYear(), $yesterday],
+            default => [$yesterday->copy()->subDays((int) (config('citevanta.reports.ranges')[$key] ?? 28) - 1), $yesterday],
+        };
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function compareRange(string $mode, Carbon $from, Carbon $to, bool $matchWeekday = false): array
+    {
+        $days = (int) $from->diffInDays($to);
+
+        if ($mode === 'year') {
+            $start = $matchWeekday ? $from->copy()->subDays(364) : $from->copy()->subYear();
+
+            return [$start, $start->copy()->addDays($days)];
+        }
+
+        $end = $from->copy()->subDay();
+
+        return [$end->copy()->subDays($days), $end];
     }
 
     public function days(): int
@@ -32,37 +142,71 @@ final readonly class ReportPeriod
         return (int) $this->from->diffInDays($this->to) + 1;
     }
 
+    public function hasComparison(): bool
+    {
+        return $this->compare !== 'none' && $this->compareFrom !== null;
+    }
+
     public function label(): string
     {
-        return match ($this->key) {
-            '12m' => 'Last 12 months',
-            default => 'Last '.$this->days().' days',
-        }.' ('.$this->from->format('j M Y').' to '.$this->to->format('j M Y').')';
+        $name = $this->key === 'custom' ? 'Custom range' : self::PRESETS[$this->key];
+
+        return $name.' ('.$this->from->format('j M Y').' to '.$this->to->format('j M Y').')';
     }
 
-    public function previousYearFrom(): Carbon
+    /** "Previous period" or "Same period last year" for the chosen comparison. */
+    public function compareName(): string
     {
-        return $this->from->copy()->subYear();
+        return strtolower(self::COMPARE[$this->compare]).($this->compare === 'year' && $this->matchWeekday ? ' (same weekdays)' : '');
     }
 
-    public function previousYearTo(): Carbon
+    /** "vs previous period" for KPI cards. */
+    public function compareShortName(): string
     {
-        return $this->to->copy()->subYear();
+        return $this->compare === 'year' ? 'vs same period last year' : 'vs previous period';
+    }
+
+    public function compareLabel(): ?string
+    {
+        return $this->hasComparison() ? $this->compareFrom->format('j M Y').' to '.$this->compareTo->format('j M Y') : null;
+    }
+
+    /** The preset that has exactly this range, if any. */
+    public function matchedPreset(): ?string
+    {
+        foreach (array_keys(self::PRESETS) as $key) {
+            [$from, $to] = self::presetRange($key);
+
+            if ($this->earliest !== null) {
+                $from = $from->max($this->earliest);
+            }
+
+            if ($from->eq($this->from) && $to->eq($this->to)) {
+                return $key;
+            }
+        }
+
+        return null;
     }
 
     /**
-     * The same period last year can be shown only when the synced data reaches back that far
-     * (13 months after the first sync, so 28 and 90 days yes, 12 months no).
+     * URL parameters that keep this selection (a link to another tab, table page or the CSV).
+     *
+     * @return array<string, string>
      */
-    public function canCompare(int $hotelId): bool
+    public function query(): array
     {
-        $earliest = DB::table('ga4_traffic_daily')->where('hotel_id', $hotelId)->min('date');
+        $query = ['from' => $this->from->toDateString(), 'to' => $this->to->toDateString(), 'compare' => $this->compare];
 
-        return $earliest !== null && Carbon::parse($earliest)->lte($this->previousYearFrom()->addDays(3));
+        if ($this->matchWeekday) {
+            $query['dow'] = '1';
+        }
+
+        return $query;
     }
 
     /**
-     * Size of one chart bucket in days: days for 28 days, weeks for 90 days, 30-day periods for a year.
+     * Size of one chart bucket in days: days for up to 31 days, weeks up to 100 days, 30-day periods beyond.
      */
     public function bucketDays(): int
     {
@@ -71,5 +215,28 @@ final readonly class ReportPeriod
             $this->days() <= 100 => 7,
             default => 30,
         };
+    }
+
+    /** The first day with stored GA4 traffic (null when nothing is stored). */
+    public static function firstGa4Day(int $hotelId): ?Carbon
+    {
+        $first = DB::table('ga4_traffic_daily')->where('hotel_id', $hotelId)->min('date');
+
+        return $first === null ? null : Carbon::parse($first);
+    }
+
+    private static function date(mixed $value): ?Carbon
+    {
+        if (! is_string($value) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            $date = Carbon::createFromFormat('!Y-m-d', $value);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
     }
 }

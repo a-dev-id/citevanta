@@ -48,7 +48,7 @@ final class AiTrafficReport
     }
 
     /**
-     * AI sessions, purchases and revenue, and their share of everything, for the period and (when available) the same days last year.
+     * AI sessions, purchases and revenue, and their share of everything, for the period and (when a comparison is chosen and its days are synced) the comparison period.
      *
      * @return array{current: array<string, float|int>, previous: array<string, float|int>|null}
      */
@@ -56,9 +56,7 @@ final class AiTrafficReport
     {
         return [
             'current' => $this->totals($this->period->from, $this->period->to),
-            'previous' => $this->period->canCompare($this->hotel->id)
-                ? $this->totals($this->period->previousYearFrom(), $this->period->previousYearTo())
-                : null,
+            'previous' => $this->period->hasComparison() ? $this->totals($this->period->compareFrom, $this->period->compareTo) : null,
         ];
     }
 
@@ -119,7 +117,8 @@ final class AiTrafficReport
     }
 
     /**
-     * Charts: AI sessions per day, week or 30 days, and the same for purchases, each with last year when available.
+     * Charts: AI sessions per day, week or 30 days, and the same for purchases, each with the comparison (dashed) when one is chosen.
+     * Days that are not synced yet are blank, never zero.
      *
      * @return array{sessions: array<string, mixed>, purchases: array<string, mixed>}
      */
@@ -127,9 +126,8 @@ final class AiTrafficReport
     {
         $size = $this->period->bucketDays();
         $count = (int) ceil($this->period->days() / $size);
-        $compare = $this->period->canCompare($this->hotel->id);
         $current = $this->blankUnsynced($this->buckets($this->period->from, $this->period->to, $size, $count), $size);
-        $previous = $compare ? $this->buckets($this->period->previousYearFrom(), $this->period->previousYearTo(), $size, $count) : null;
+        $previous = $this->period->hasComparison() ? $this->buckets($this->period->compareFrom, $this->period->compareTo, $size, $count) : null;
 
         $labels = [];
         $titles = [];
@@ -144,7 +142,7 @@ final class AiTrafficReport
             $series = [['key' => 'this', 'label' => $label, 'color' => 'series-1', 'data' => array_column($current, $metric), 'group' => 'all', 'highlight' => true]];
 
             if ($previous !== null) {
-                $series[] = ['key' => 'last', 'label' => $label.', same days last year', 'color' => 'series-3', 'data' => array_column($previous, $metric), 'group' => 'all', 'highlight' => false];
+                $series[] = ['key' => 'last', 'label' => $label.', '.$this->period->compareName(), 'color' => 'series-3', 'data' => array_column($previous, $metric), 'group' => 'all', 'highlight' => false, 'dash' => true];
             }
 
             return ['labels' => $labels, 'titles' => $titles, 'series' => $series, 'unit' => ''];
@@ -154,20 +152,141 @@ final class AiTrafficReport
     }
 
     /**
+     * The three tables, one page of rows each (or every row for the CSV), with previous and change columns when a comparison is on.
+     *
      * @return array<string, ReportTable>
      */
-    public function tables(): array
+    public function tables(?TableOptions $options = null): array
     {
-        $columns = fn (string $first) => [
-            'name' => $first.'|text', 'sessions' => 'AI sessions|int', 'share' => 'Share of AI sessions|percent',
-            'purchases' => 'Purchases|int', 'revenue' => 'Revenue|money', 'conversion' => 'Purchases per session|percent',
-        ];
+        $options ??= new TableOptions;
+        $compare = $this->period->hasComparison();
+        $tables = [];
 
-        return [
-            'ai-platforms' => ReportTable::make('ai-platforms', 'By AI platform', $columns('AI platform'), $this->byPlatform()),
-            'ai-countries' => ReportTable::make('ai-countries', 'By country', $columns('Country'), $this->byCountry()),
-            'ai-pages' => ReportTable::make('ai-pages', 'By landing page', $columns('Landing page'), $this->byLandingPage()),
-        ];
+        foreach (['ai-platforms' => ['By AI platform', 'AI platform'], 'ai-countries' => ['By country', 'Country'], 'ai-pages' => ['By landing page', 'Landing page']] as $key => [$title, $first]) {
+            $columns = $this->columns($first, $compare);
+            $view = $options->forTable($key, 'sessions', ReportTable::sortableKeys($columns));
+            [$rows, $page] = $key === 'ai-platforms'
+                ? $view->paginate($this->platformRows($compare))
+                : $this->groupedPage($key === 'ai-countries' ? 'country' : 'landing_page', $view, $compare);
+
+            $tables[$key] = ReportTable::make($key, $title, $columns, $rows, $compare ? 'Compared with '.$this->period->compareLabel().' ('.$this->period->compareName().'). Rows that only existed in the comparison period are not listed.' : null, $page);
+        }
+
+        return $tables;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function columns(string $first, bool $compare): array
+    {
+        return ['name' => $first.'|text', 'sessions' => 'AI sessions|int']
+            + ($compare ? ['prev_sessions' => 'Previous sessions|int', 'change' => 'Change|change'] : [])
+            + ['share' => 'Share of AI sessions|percent', 'purchases' => 'Purchases|int', 'revenue' => 'Revenue|money', 'conversion' => 'Purchases per session|percent'];
+    }
+
+    /**
+     * The AI sources seen in the period or the comparison period.
+     *
+     * @return list<string>
+     */
+    private function sourcesAcross(): array
+    {
+        $from = $this->period->hasComparison() ? $this->period->from->copy()->min($this->period->compareFrom) : $this->period->from;
+        $to = $this->period->hasComparison() ? $this->period->to->copy()->max($this->period->compareTo) : $this->period->to;
+
+        return $this->aiSources($from, $to);
+    }
+
+    /**
+     * Country and landing page: sorted and paged in the database.
+     *
+     * @return array{0: list<array<string, scalar|null>>, 1: TablePage}
+     */
+    private function groupedPage(string $column, TableView $view, bool $compare): array
+    {
+        $sources = $this->sourcesAcross();
+        $total = (int) $this->totals($this->period->from, $this->period->to)['ai_sessions'];
+
+        if ($sources === []) {
+            return [[], $view->pageInfo(0)];
+        }
+
+        $query = new GroupedQuery(
+            $column,
+            fn () => $this->base($this->period->from, $this->period->to)->whereIn('source', $sources),
+            $compare ? fn () => $this->base($this->period->compareFrom, $this->period->compareTo)->whereIn('source', $sources) : null,
+            'sum(sessions) as sessions, sum(purchases) as purchases, sum(revenue) as revenue',
+            ['sessions'],
+            [
+                'name' => 'c.name', 'sessions' => 'c.sessions', 'share' => 'c.sessions', 'purchases' => 'c.purchases', 'revenue' => 'c.revenue',
+                'conversion' => '(c.purchases * 1.0 / nullif(c.sessions, 0))', 'prev_sessions' => 'coalesce(p.sessions, 0)',
+                'change' => 'case when coalesce(p.sessions, 0) > 0 then (c.sessions - p.sessions) * 1.0 / p.sessions end',
+            ],
+        );
+        [$found, $count] = $query->page($view);
+
+        $rows = array_map(function (object $row) use ($total, $compare): array {
+            $sessions = (int) $row->sessions;
+            $out = ['name' => $row->name === '' ? '(not set)' : (string) $row->name, 'sessions' => $sessions];
+
+            if ($compare) {
+                $previous = (int) $row->prev_sessions;
+                $out += ['prev_sessions' => $previous, 'change' => $previous > 0 ? ($sessions - $previous) / $previous : null];
+            }
+
+            return $out + [
+                'share' => $total > 0 ? $sessions / $total : 0.0, 'purchases' => (int) $row->purchases, 'revenue' => round((float) $row->revenue, 2),
+                'conversion' => $sessions > 0 ? (int) $row->purchases / $sessions : 0.0,
+            ];
+        }, $found);
+
+        return [$rows, $view->pageInfo($count)];
+    }
+
+    /**
+     * AI platforms (a handful of rows, grouped from the sources in PHP).
+     *
+     * @return list<array<string, scalar|null>>
+     */
+    private function platformRows(bool $compare): array
+    {
+        $sources = $this->sourcesAcross();
+        $total = (int) $this->totals($this->period->from, $this->period->to)['ai_sessions'];
+        $read = function (Carbon $from, Carbon $to) use ($sources): array {
+            $platforms = [];
+
+            if ($sources !== []) {
+                foreach ($this->base($from, $to)->whereIn('source', $sources)->groupBy('source')->selectRaw('source as name, sum(sessions) as sessions, sum(purchases) as purchases, sum(revenue) as revenue')->get() as $row) {
+                    $platform = (string) AiSources::platform($row->name);
+                    $platforms[$platform] ??= ['sessions' => 0, 'purchases' => 0, 'revenue' => 0.0];
+                    $platforms[$platform]['sessions'] += (int) $row->sessions;
+                    $platforms[$platform]['purchases'] += (int) $row->purchases;
+                    $platforms[$platform]['revenue'] += (float) $row->revenue;
+                }
+            }
+
+            return $platforms;
+        };
+        $now = $read($this->period->from, $this->period->to);
+        $before = $compare ? $read($this->period->compareFrom, $this->period->compareTo) : [];
+        $rows = [];
+
+        foreach ($now as $name => $values) {
+            $row = ['name' => $name, 'sessions' => $values['sessions']];
+
+            if ($compare) {
+                $previous = (int) ($before[$name]['sessions'] ?? 0);
+                $row += ['prev_sessions' => $previous, 'change' => $previous > 0 ? ($values['sessions'] - $previous) / $previous : null];
+            }
+
+            $rows[] = $row + [
+                'share' => $total > 0 ? $values['sessions'] / $total : 0.0, 'purchases' => $values['purchases'], 'revenue' => round($values['revenue'], 2),
+                'conversion' => $values['sessions'] > 0 ? $values['purchases'] / $values['sessions'] : 0.0,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

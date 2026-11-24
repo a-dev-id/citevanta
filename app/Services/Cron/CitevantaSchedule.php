@@ -26,6 +26,7 @@ final class CitevantaSchedule
             new ScheduledTask('citevanta:billing', '15 * * * *', $timezone, 'Billing: renewal invoices, reminders, past due, expiry'),
             new ScheduledTask('citevanta:audit-waitlist', '0 8 * * *', $timezone, 'Email the free audit waitlist that slots are open'),
             new ScheduledTask('citevanta:google-sync', '20 3 * * *', $timezone, 'Queue the daily GA4 and Search Console sync'),
+            new ScheduledTask('citevanta:google-heal', '20 5 * * *', $timezone, 'Queue GA4 days that are missing from the stored data'),
             new ScheduledTask('citevanta:google-health', '40 3 * * 1', $timezone, 'Weekly tracking health check'),
             // Hourly: each team gets its report at Monday 08:00 in its own timezone.
             new ScheduledTask('citevanta:weekly-reports', '1 * * * *', $timezone, 'Weekly email reports'),

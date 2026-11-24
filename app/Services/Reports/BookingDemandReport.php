@@ -3,15 +3,16 @@
 namespace App\Services\Reports;
 
 use App\Models\Hotel;
-use App\Services\Google\GoogleSync;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Demand by check-in date and by length of stay, from the booking date
- * fields GA4 receives on view_item (looked), begin_checkout (started) and
- * purchase (booked) events. Event counts, not people. Only the events that
+ * Searches by check-in date and by length of stay, from the stay dates GA4 receives
+ * with guests' searches in the booking engine (the search_dates event) and with
+ * begin_checkout (started) and purchase (booked). No event name is filtered: every
+ * event that carries the stay dates counts, and everything that is not a started
+ * or finished booking counts as a search. Event counts, not people. Only the events that
  * happened in the report period are used, so a date's demand is what guests
  * looked for during that time. Empty until the fields are mapped.
  */
@@ -32,9 +33,9 @@ final class BookingDemandReport
      *
      * @return list<array<string, scalar|null>>
      */
-    public function byCheckin(): array
+    public function byCheckin(?Carbon $from = null, ?Carbon $to = null): array
     {
-        $rows = $this->events()->where('checkin', '>=', now()->toDateString())->groupBy('checkin', 'event_name')
+        $rows = $this->events($from, $to)->where('checkin', '>=', now()->toDateString())->groupBy('checkin', 'event_name')
             ->selectRaw('checkin, event_name, sum(events) as events')->get();
         $dates = [];
 
@@ -50,7 +51,7 @@ final class BookingDemandReport
     }
 
     /**
-     * The dates with the most interest (looked + started), most first.
+     * The dates with the most interest (searched + started), most first.
      *
      * @return list<array<string, scalar|null>>
      */
@@ -63,7 +64,7 @@ final class BookingDemandReport
     }
 
     /**
-     * Data for the check-in calendar: for every date from today on, what guests looked at (l), started
+     * Data for the check-in calendar: for every date from today on, what guests searched for (l), started
      * booking (s) and booked (b), the demand (d = l + s), and the stay lengths behind it ([nights, l, s, b],
      * most asked first; nights 0 = not known). Short keys, because this goes to the browser as JSON.
      *
@@ -112,14 +113,14 @@ final class BookingDemandReport
     }
 
     /**
-     * How long guests want to stay: the share of looks and started bookings per number of nights
+     * How long guests want to stay: the share of searches and started bookings per number of nights
      * (1 to 14, then 15 or more). Null when no stay length is known.
      *
      * @return array{bars: list<array{n: int, label: string, demand: int, share: float}>, total: int, common: int, short_share: float}|null
      */
     public function stayHistogram(): ?array
     {
-        $rows = $this->events()->whereIn('event_name', ['view_item', 'begin_checkout'])->where('nights', '>=', 1)
+        $rows = $this->events()->where('event_name', '!=', 'purchase')->where('nights', '>=', 1)
             ->groupBy('nights')->selectRaw('nights, sum(events) as events')->get();
         $demand = array_fill(1, self::HISTOGRAM_MAX, 0);
 
@@ -165,22 +166,39 @@ final class BookingDemandReport
     /**
      * @return array<string, ReportTable>
      */
-    public function tables(): array
+    public function tables(?TableOptions $options = null): array
     {
-        $columns = ['looked' => 'Looked at rooms|int', 'started' => 'Started a booking|int', 'booked' => 'Booked|int'];
+        $options ??= new TableOptions;
+        $compare = $this->period->hasComparison();
+        $note = $compare ? ' Compared with the same check-in dates searched during '.$this->period->compareLabel().' ('.$this->period->compareName().').' : '';
+        $columns = ['looked' => 'Searched|int', 'started' => 'Started a booking|int', 'booked' => 'Booked|int'];
 
-        return [
-            'demand-checkin' => ReportTable::make('demand-checkin', 'Demand by check-in date', ['date' => 'Check-in date|date'] + $columns + ['demand' => 'Looked + started|int'], $this->byCheckin(),
-                'Event counts from GA4 for stays that start today or later, counted over the report period.'),
-            'demand-stay' => ReportTable::make('demand-stay', 'Demand by length of stay', ['name' => 'Length of stay|text'] + $columns, $this->byStay(),
-                'Needs check-out dates (or a nights field) in GA4.'),
-        ];
+        $checkin = ['date' => 'Check-in date|date'] + $columns + ['demand' => 'Searched + started|int'] + ($compare ? ['prev_demand' => 'Previous searched + started|int', 'change' => 'Change|change'] : []);
+        $rows = $this->byCheckin();
+
+        if ($compare) {
+            $before = array_column($this->byCheckin($this->period->compareFrom, $this->period->compareTo), 'demand', 'date');
+            $rows = array_map(function (array $row) use ($before): array {
+                $previous = (int) ($before[$row['date']] ?? 0);
+
+                return $row + ['prev_demand' => $previous, 'change' => $previous > 0 ? ($row['demand'] - $previous) / $previous : null];
+            }, $rows);
+        }
+
+        [$rows, $page] = $options->forTable('demand-checkin', 'date', ReportTable::sortableKeys($checkin), 'asc')->paginate($rows);
+        $tables = ['demand-checkin' => ReportTable::make('demand-checkin', 'Searches by check-in date', $checkin, $rows,
+            'Guests\' searches in the booking engine (GA4 event counts, not people) for stays that start today or later, counted over the report period.'.$note, $page)];
+
+        $stay = ['name' => 'Length of stay|text|-'] + $columns;
+        [$rows, $page] = $options->forTable('demand-stay', 'nights', ['looked', 'started', 'booked', 'nights'], 'asc')->paginate($this->byStay());
+        $tables['demand-stay'] = ReportTable::make('demand-stay', 'Searches by length of stay', $stay, $rows, 'Needs check-out dates (or a nights field) in GA4.', $page);
+
+        return $tables;
     }
 
-    private function events(): Builder
+    private function events(?Carbon $from = null, ?Carbon $to = null): Builder
     {
         return DB::table('ga4_booking_dates_daily')->where('hotel_id', $this->hotel->id)
-            ->whereIn('event_name', GoogleSync::BOOKING_EVENTS)
-            ->whereBetween('date', [$this->period->from->toDateString(), $this->period->to->toDateString()]);
+            ->whereBetween('date', [($from ?? $this->period->from)->toDateString(), ($to ?? $this->period->to)->toDateString()]);
     }
 }

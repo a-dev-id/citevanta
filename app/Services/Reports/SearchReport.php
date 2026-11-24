@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\Hotel;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,9 +27,9 @@ final class SearchReport
     /**
      * @return array{clicks: int, impressions: int, ctr: float, position: float}
      */
-    public function totals(): array
+    public function totals(?Carbon $from = null, ?Carbon $to = null): array
     {
-        $row = $this->base()->selectRaw('coalesce(sum(clicks),0) as clicks, coalesce(sum(impressions),0) as impressions, coalesce(sum(position * impressions),0) as weighted')->first();
+        $row = $this->base($from, $to)->selectRaw('coalesce(sum(clicks),0) as clicks, coalesce(sum(impressions),0) as impressions, coalesce(sum(position * impressions),0) as weighted')->first();
         $impressions = (int) $row->impressions;
 
         return [
@@ -36,6 +37,16 @@ final class SearchReport
             'ctr' => $impressions > 0 ? (int) $row->clicks / $impressions : 0.0,
             'position' => $impressions > 0 ? round((float) $row->weighted / $impressions, 1) : 0.0,
         ];
+    }
+
+    /**
+     * The totals of the comparison period, or null when no comparison is chosen.
+     *
+     * @return array{clicks: int, impressions: int, ctr: float, position: float}|null
+     */
+    public function previousTotals(): ?array
+    {
+        return $this->period->hasComparison() ? $this->totals($this->period->compareFrom, $this->period->compareTo) : null;
     }
 
     /**
@@ -67,11 +78,11 @@ final class SearchReport
      *
      * @return list<array<string, scalar|null>>
      */
-    public function seasonalGroups(): array
+    public function seasonalGroups(?Carbon $from = null, ?Carbon $to = null): array
     {
         $groups = [];
 
-        foreach ($this->grouped('query', 2000) as $row) {
+        foreach ($this->grouped('query', 2000, $from, $to) as $row) {
             $query = mb_strtolower((string) $row['name']);
 
             foreach ((array) config('citevanta.reports.seasonal_groups') as $group => $words) {
@@ -110,7 +121,7 @@ final class SearchReport
      *
      * @return list<array<string, scalar|null>>
      */
-    public function opportunities(): array
+    public function opportunities(?int $limit = self::LIMIT): array
     {
         $min = (int) config('citevanta.reports.opportunity_min_impressions');
         $maxCtr = (float) config('citevanta.reports.opportunity_max_ctr');
@@ -119,7 +130,9 @@ final class SearchReport
         $rows = array_filter($this->grouped('query', 2000), fn (array $row) => $row['impressions'] >= $min && $row['ctr'] < $maxCtr && $row['position'] < $maxPosition);
         usort($rows, fn ($a, $b) => $b['impressions'] <=> $a['impressions']);
 
-        return array_slice(array_values($rows), 0, self::LIMIT);
+        $rows = array_values($rows);
+
+        return $limit === null ? $rows : array_slice($rows, 0, $limit);
     }
 
     /**
@@ -133,39 +146,126 @@ final class SearchReport
     }
 
     /**
+     * The tables, one page of rows each (or every row for the CSV), sorted over all rows, with previous and change columns when a comparison is on.
+     *
      * @return array<string, ReportTable>
      */
-    public function tables(): array
+    public function tables(?TableOptions $options = null): array
     {
-        $columns = fn (string $first) => [
-            'name' => $first.'|text', 'clicks' => 'Clicks|int', 'impressions' => 'Impressions|int', 'ctr' => 'Click rate|percent', 'position' => 'Average position|decimal',
-        ];
+        $options ??= new TableOptions;
+        $compare = $this->period->hasComparison();
+        $note = $compare ? 'Compared with '.$this->period->compareLabel().' ('.$this->period->compareName().').' : null;
+        $tables = [];
 
-        return [
-            'search-queries' => ReportTable::make('search-queries', 'Top queries', $columns('Query'), $this->queries()),
-            'search-pages' => ReportTable::make('search-pages', 'Top pages', $columns('Page'), $this->pages()),
-            'search-countries' => ReportTable::make('search-countries', 'Top countries', $columns('Country'), $this->countries()),
-            'search-seasonal' => ReportTable::make('search-seasonal', 'Seasonal query groups', [
-                'name' => 'Group|text', 'queries' => 'Queries|int', 'clicks' => 'Clicks|int', 'impressions' => 'Impressions|int',
-                'ctr' => 'Click rate|percent', 'position' => 'Average position|decimal', 'top' => 'Biggest query|text',
-            ], $this->seasonalGroups(), 'A query counts in the first group whose words it contains.'),
-            'search-opportunities' => ReportTable::make('search-opportunities', 'Low click rate opportunities', $columns('Query'), $this->opportunities(),
-                'At least '.config('citevanta.reports.opportunity_min_impressions').' impressions, a click rate below '.round((float) config('citevanta.reports.opportunity_max_ctr') * 100).'% and an average position better than '.config('citevanta.reports.opportunity_max_position').'.'),
-        ];
+        foreach (['search-queries' => ['Top queries', 'Query', 'query'], 'search-pages' => ['Top pages', 'Page', 'page'], 'search-countries' => ['Top countries', 'Country', 'country']] as $key => [$title, $first, $column]) {
+            $columns = $this->columns($first, $compare);
+            $view = $options->forTable($key, 'clicks', ReportTable::sortableKeys($columns));
+            [$rows, $page] = $this->groupedPage($column, $view, $compare);
+            $tables[$key] = ReportTable::make($key, $title, $columns, $rows, $note, $page);
+        }
+
+        $columns = ['name' => 'Group|text', 'queries' => 'Queries|int', 'clicks' => 'Clicks|int']
+            + ($compare ? ['prev_clicks' => 'Previous clicks|int', 'change' => 'Change|change'] : [])
+            + ['impressions' => 'Impressions|int', 'ctr' => 'Click rate|percent', 'position' => 'Average position|decimal', 'top' => 'Biggest query|text|-'];
+        $view = $options->forTable('search-seasonal', 'clicks', ReportTable::sortableKeys($columns));
+        $rows = $this->seasonalGroups();
+
+        if ($compare) {
+            $before = array_column($this->seasonalGroups($this->period->compareFrom, $this->period->compareTo), 'clicks', 'name');
+            $rows = array_map(fn (array $row) => $this->withChange($row, (int) ($before[$row['name']] ?? 0)), $rows);
+        }
+
+        [$rows, $page] = $view->paginate($rows);
+        $tables['search-seasonal'] = ReportTable::make('search-seasonal', 'Seasonal query groups', $columns, $rows, trim('A query counts in the first group whose words it contains. '.$note), $page);
+
+        $columns = $this->columns('Query', $compare);
+        $view = $options->forTable('search-opportunities', 'clicks', ReportTable::sortableKeys($columns));
+        $rows = $this->opportunities(null);
+
+        if ($compare) {
+            $before = array_column($this->grouped('query', 2000, $this->period->compareFrom, $this->period->compareTo), 'clicks', 'name');
+            $rows = array_map(fn (array $row) => $this->withChange($row, (int) ($before[$row['name']] ?? 0)), $rows);
+        }
+
+        [$rows, $page] = $view->paginate($rows);
+        $tables['search-opportunities'] = ReportTable::make('search-opportunities', 'Low click rate opportunities', $columns, $rows,
+            trim('At least '.config('citevanta.reports.opportunity_min_impressions').' impressions, a click rate below '.round((float) config('citevanta.reports.opportunity_max_ctr') * 100).'% and an average position better than '.config('citevanta.reports.opportunity_max_position').'. '.$note), $page);
+
+        return $tables;
     }
 
-    private function base(): Builder
+    /**
+     * @param  array<string, scalar|null>  $row
+     * @return array<string, scalar|null>
+     */
+    private function withChange(array $row, int $previous): array
+    {
+        return $row + ['prev_clicks' => $previous, 'change' => $previous > 0 ? ((int) $row['clicks'] - $previous) / $previous : null];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function columns(string $first, bool $compare): array
+    {
+        return ['name' => $first.'|text', 'clicks' => 'Clicks|int']
+            + ($compare ? ['prev_clicks' => 'Previous clicks|int', 'change' => 'Change|change'] : [])
+            + ['impressions' => 'Impressions|int', 'ctr' => 'Click rate|percent', 'position' => 'Average position|decimal'];
+    }
+
+    /**
+     * Queries, pages and countries: sorted and paged in the database.
+     *
+     * @return array{0: list<array<string, scalar|null>>, 1: TablePage}
+     */
+    private function groupedPage(string $column, TableView $view, bool $compare): array
+    {
+        $query = new GroupedQuery(
+            $column,
+            fn () => $this->base(),
+            $compare ? fn () => $this->base($this->period->compareFrom, $this->period->compareTo) : null,
+            'sum(clicks) as clicks, sum(impressions) as impressions, sum(position * impressions) as weighted',
+            ['clicks'],
+            [
+                'name' => 'c.name', 'clicks' => 'c.clicks', 'impressions' => 'c.impressions',
+                'ctr' => '(c.clicks * 1.0 / nullif(c.impressions, 0))', 'position' => '(c.weighted * 1.0 / nullif(c.impressions, 0))',
+                'prev_clicks' => 'coalesce(p.clicks, 0)',
+                'change' => 'case when coalesce(p.clicks, 0) > 0 then (c.clicks - p.clicks) * 1.0 / p.clicks end',
+            ],
+        );
+        [$found, $total] = $query->page($view);
+
+        $rows = array_map(function (object $row) use ($column, $compare): array {
+            $impressions = (int) $row->impressions;
+            $clicks = (int) $row->clicks;
+            $out = ['name' => $column === 'country' ? strtoupper((string) $row->name) : (string) $row->name, 'clicks' => $clicks];
+
+            if ($compare) {
+                $previous = (int) $row->prev_clicks;
+                $out += ['prev_clicks' => $previous, 'change' => $previous > 0 ? ($clicks - $previous) / $previous : null];
+            }
+
+            return $out + [
+                'impressions' => $impressions, 'ctr' => $impressions > 0 ? $clicks / $impressions : 0.0,
+                'position' => $impressions > 0 ? round((float) $row->weighted / $impressions, 1) : 0.0,
+            ];
+        }, $found);
+
+        return [$rows, $view->pageInfo($total)];
+    }
+
+    private function base(?Carbon $from = null, ?Carbon $to = null): Builder
     {
         return DB::table('gsc_daily')->where('hotel_id', $this->hotel->id)
-            ->whereBetween('date', [$this->period->from->toDateString(), $this->period->to->toDateString()]);
+            ->whereBetween('date', [($from ?? $this->period->from)->toDateString(), ($to ?? $this->period->to)->toDateString()]);
     }
 
     /**
      * @return list<array<string, scalar|null>>
      */
-    private function grouped(string $column, int $limit): array
+    private function grouped(string $column, int $limit, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        return $this->base()->groupBy($column)
+        return $this->base($from, $to)->groupBy($column)
             ->selectRaw("{$column} as name, sum(clicks) as clicks, sum(impressions) as impressions, sum(position * impressions) as weighted")
             ->orderByDesc('impressions')->limit($limit)->get()
             ->map(fn ($row) => [

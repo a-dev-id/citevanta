@@ -20,10 +20,10 @@
             </div>
         @endforeach
     </div>
-    <div class="cv-stays__axis" aria-hidden="true">nights · share of looks and started bookings</div>
+    <div class="cv-stays__axis" aria-hidden="true">nights · share of searches and started bookings</div>
 
     <table class="visually-hidden">
-        <caption>Length of stay: share of looks and started bookings</caption>
+        <caption>Length of stay: share of searches and started bookings</caption>
         <thead><tr><th scope="col">Nights</th><th scope="col">Share</th></tr></thead>
         <tbody>
             @foreach ($stays['bars'] as $bar)
@@ -33,6 +33,6 @@
     </table>
 
     <p class="small text-muted mb-0" id="stay-summary">
-        Stays of 1 to 3 nights were {{ number_format($stays['short_share'] * 100) }}% of the searches. From {{ number_format($stays['total']) }} looks and started bookings that chose a length.
+        Stays of 1 to 3 nights were {{ number_format($stays['short_share'] * 100) }}% of the searches. From {{ number_format($stays['total']) }} searches and started bookings that chose a length.
     </p>
 </div>

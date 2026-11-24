@@ -16,10 +16,10 @@ use Illuminate\Support\Facades\Log;
  *    with sessions, totalUsers, engagedSessions, keyEvents, ecommercePurchases, purchaseRevenue
  *  - ga4_events: date x eventName with eventCount, eventValue
  *  - ga4_booking_dates: date x event x check-in (x check-out or nights), only when the booking date
- *    fields are mapped (the first time: 13 months, later the daily window)
+ *    fields are mapped (the first time: ga4_first_sync_months, later the daily window)
  *  - gsc_day: one day of Search Console by query, page, country, device
  *
- * First sync: GA4 for the last 13 months, Search Console for 16 months (one job
+ * First sync: GA4 for the last 25 months (ga4_first_sync_months), Search Console for 16 months (one job
  * per day). Then daily: the last 3 (GA4) and 5 (Search Console) days again,
  * because Google adds late data. Pages of results are further jobs.
  */
@@ -32,9 +32,6 @@ final class GoogleSync
     public const GSC_DAY = 'gsc_day';
 
     public const GA4_BOOKING_DATES = 'ga4_booking_dates';
-
-    /** Events that carry the stay dates a guest looked at, started or booked. */
-    public const BOOKING_EVENTS = ['view_item', 'begin_checkout', 'purchase'];
 
     private const TRAFFIC_DIMENSIONS = ['date', 'sessionSource', 'sessionMedium', 'country', 'landingPage', 'deviceCategory'];
 
@@ -142,6 +139,59 @@ final class GoogleSync
         $link->forceFill(['first_synced_at' => null, 'booking_dates_synced_at' => null, 'last_sync_error' => null])->save();
 
         return $this->schedule($link->fresh(), false);
+    }
+
+    /**
+     * Read only the older days: from the oldest wanted day (ga4_first_sync_months back) up to the day before the
+     * oldest stored day, with the same ordered, windowed method; each window replaces its own dates, so nothing
+     * newer is touched. For teams that were synced with fewer months.
+     *
+     * @return int job chains queued
+     */
+    public function backfill(HotelGoogleLink $link): int
+    {
+        if ($link->ga4_property === null) {
+            return 0;
+        }
+
+        $wanted = Carbon::yesterday()->subMonthsNoOverflow((int) config('citevanta.google.ga4_first_sync_months', 25));
+        $chains = 0;
+        $tables = [self::GA4_TRAFFIC => 'ga4_traffic_daily', self::GA4_EVENTS => 'ga4_events_daily'];
+
+        if (! empty(($link->date_mapping ?? [])['checkin'])) {
+            $tables[self::GA4_BOOKING_DATES] = 'ga4_booking_dates_daily';
+        }
+
+        foreach ($tables as $type => $table) {
+            $oldest = DB::table($table)->where('hotel_id', $link->hotel_id)->min('date');
+
+            if ($oldest === null) {
+                continue; // nothing stored yet: the normal first sync reads everything
+            }
+
+            $until = Carbon::parse($oldest)->subDay();
+
+            if ($until->lt($wanted)) {
+                continue; // already reaches back far enough
+            }
+
+            GoogleSyncJob::dispatch($link->id, $type, $wanted->toDateString(), self::windowEnd($wanted->toDateString(), $until->toDateString()), 0, $until->toDateString());
+            $chains++;
+        }
+
+        return $chains;
+    }
+
+    /**
+     * Backfill every linked hotel of a team.
+     *
+     * @return array{hotels: int, jobs: int}
+     */
+    public function backfillTeam(int $teamId): array
+    {
+        $links = HotelGoogleLink::query()->where('team_id', $teamId)->whereNotNull('ga4_property')->get();
+
+        return ['hotels' => $links->count(), 'jobs' => $links->sum(fn (HotelGoogleLink $link) => $this->backfill($link))];
     }
 
     /**
@@ -289,7 +339,8 @@ final class GoogleSync
             'dateRanges' => [['startDate' => $from, 'endDate' => $to]],
             'dimensions' => array_map(fn ($name) => ['name' => $name], $dimensions),
             'metrics' => [['name' => 'eventCount']],
-            'dimensionFilter' => ['filter' => ['fieldName' => 'eventName', 'inListFilter' => ['values' => self::BOOKING_EVENTS]]],
+            // No event names: every event that carries the check-in parameter counts (search_dates, view_item, begin_checkout, purchase, ...).
+            'dimensionFilter' => ['notExpression' => ['filter' => ['fieldName' => 'customEvent:'.$mapping['checkin'], 'stringFilter' => ['matchType' => 'EXACT', 'value' => '(not set)']]]],
             'orderBys' => self::orderBy($dimensions),
             'limit' => (string) $limit,
             'offset' => (string) $offset,

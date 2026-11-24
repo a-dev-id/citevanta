@@ -9,6 +9,7 @@ use App\Services\Google\GoogleAgent;
 use App\Services\Google\GoogleApi;
 use App\Services\Google\GoogleApiException;
 use App\Services\Google\GoogleDiagnostics;
+use App\Services\Google\GoogleSelfCheck;
 use App\Services\Google\GoogleSync;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,9 @@ class GoogleIntegrationController extends Controller
             'key' => $agent->account()->status(),
             'fake' => (bool) config('services.google.fake'),
             'linkedHotels' => HotelGoogleLink::query()->count(),
+            'dataWarnings' => HotelGoogleLink::query()->whereNotNull('data_check')->with('hotel.team')->get()
+                ->map(fn (HotelGoogleLink $link) => ['hotel' => $link->hotel?->name, 'team' => $link->hotel?->team?->name, 'text' => GoogleSelfCheck::warning($link), 'checked' => $link->data_check['checked_at'] ?? null])
+                ->filter(fn (array $warning) => $warning['text'] !== null)->values(),
             'links' => HotelGoogleLink::query()->whereNotNull('ga4_property')->with('hotel.team')->get()
                 ->filter(fn (HotelGoogleLink $link) => $link->hotel !== null)
                 ->sortBy(fn (HotelGoogleLink $link) => $link->hotel->team?->name.' '.$link->hotel->name)->values(),
@@ -47,7 +51,7 @@ class GoogleIntegrationController extends Controller
     }
 
     /**
-     * Copy the 13 months again for the team of the chosen hotel; stored rows are replaced by date.
+     * Copy the whole GA4 history again for the team of the chosen hotel; stored rows are replaced by date.
      */
     public function resync(Request $request, GoogleSync $sync, GoogleAgent $agent): RedirectResponse
     {
@@ -61,6 +65,25 @@ class GoogleIntegrationController extends Controller
         $result = $sync->resyncTeam($hotel->team_id);
 
         return to_route('admin.integrations.google')->with('status', "Re-sync started for {$hotel->team?->name}: {$result['hotels']} hotel(s). The data fills in from the oldest date to the newest and the old rows stay until they are replaced.");
+    }
+
+    /**
+     * Read the GA4 days older than the oldest stored day for the team of the chosen hotel.
+     */
+    public function backfill(Request $request, GoogleSync $sync, GoogleAgent $agent): RedirectResponse
+    {
+        $data = $request->validate(['hotel' => ['required', 'integer', 'exists:hotels,id']]);
+        $hotel = Hotel::query()->with('team')->findOrFail($data['hotel']);
+
+        if ($agent->isBroken()) {
+            return to_route('admin.integrations.google')->with('error', 'Google refused the service account key. Click Test connection first.');
+        }
+
+        $result = $sync->backfillTeam($hotel->team_id);
+
+        return to_route('admin.integrations.google')->with('status', $result['jobs'] === 0
+            ? "Nothing to backfill for {$hotel->team?->name}: the stored data already reaches back ".(int) config('citevanta.google.ga4_first_sync_months', 25).' months, or nothing is stored yet.'
+            : "Backfill started for {$hotel->team?->name}: only days older than the oldest stored day are read; newer data is not touched.");
     }
 
     /**

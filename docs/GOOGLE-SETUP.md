@@ -90,7 +90,7 @@ On **Settings > Connect Google** (Private plan owners) the hotel sees the servic
 - **GA4**: Admin > Property access management > + > Add users > paste the email > role **Viewer** > untick "Notify new users by email" > Add.
 - **Search Console**: Settings > Users and permissions > Add user > paste the email > Permission **Restricted** > Add.
 
-Then **Check connection** lists only the GA4 properties and Search Console sites this service account can see, filtered by the hotel's website domain. If nothing is shared yet, the page says so. The owner picks the property and site; the tracking health check and the first sync start (GA4: last 13 months, to compare this year with last year; Search Console: last 16 months, one job per day; then daily).
+Then **Check connection** lists only the GA4 properties and Search Console sites this service account can see, filtered by the hotel's website domain. If nothing is shared yet, the page says so. The owner picks the property and site; the tracking health check and the first sync start (GA4: last 25 months, so a year can be compared with the year before; Search Console: last 16 months, its limit, one job per day; then daily).
 
 ## If Google refuses the key
 
@@ -109,6 +109,18 @@ Check that the service account and its key still exist in Google Cloud (IAM & Ad
 4. Only then delete the old key in Google Cloud.
 
 Hotels do not need to do anything: the service account email stays the same.
+
+## How much history is read, and older data for teams already synced
+
+The first GA4 sync copies `GA4_FIRST_SYNC_MONTHS` months (default **25**) in ordered windows of 31 days, oldest first. Search Console stays at 16 months, which is the most it keeps.
+
+A team that was synced with fewer months (for example 13) is not copied again. Use **Backfill older data** (Admin > Integrations > Google, pick the team and hotel) or `php artisan citevanta:google-backfill {team}`: it reads only the days older than the oldest stored day, up to the configured number of months, with the same ordered, windowed method. Each window replaces only its own dates (replace by date), so nothing newer is touched and the reports never go empty. Run it once after upgrading; the daily gap check then keeps the days complete.
+
+## The Reports page (Private plan)
+
+- **Date range:** presets (last 7, 28, 30 and 90 days, this month, last month, last 12 months, this year) or a custom range on a two-month calendar. The range starts no earlier than the first synced day; a custom range ends no later than the last fully synced day. The selection is in the URL (`?from=&to=&compare=`), so it can be bookmarked or shared, and it applies to both tabs.
+- **Compare:** no comparison, the previous period (same length, directly before; the default) or the same period last year (optionally shifted 52 weeks so the weekdays match, `&dow=1`). A comparison that would start before the first synced day is disabled and the page says why ("data starts ..."). Days that were never synced are blank, never zero. The comparison line is dashed in the charts, the cards show the % change and the tables get previous and change columns.
+- **Tables:** 10, 50 or 100 rows per page (10 by default, remembered per user), sortable columns (the sort covers all rows) and page controls. The page, sort and size are in the URL (`?size=50&page[ai-pages]=2&sort[ai-pages]=sessions:desc`). The CSV button always exports every row of the selected range in the chosen order, with the comparison columns when a comparison is on; the range is in the file name.
 
 ## Quotas
 

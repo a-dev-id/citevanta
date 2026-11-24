@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('citevanta:google-resync {team : Team id or part of its name}')]
-#[Description('Copy the 13 months of GA4 data again for a team, window by window; stored rows are replaced by date, so reports never go empty')]
+#[Description('Copy the whole GA4 history again for a team, window by window; stored rows are replaced by date, so reports never go empty')]
 class GoogleResyncCommand extends Command
 {
     public function handle(GoogleSync $sync, GoogleAgent $agent): int

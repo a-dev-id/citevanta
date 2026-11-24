@@ -7,7 +7,7 @@
     $top = $calendar['top'];
 @endphp
 
-{{-- Alpine component: three months side by side, each night shaded by how many guests looked at it or started booking it. --}}
+{{-- Alpine component: three months side by side, each night shaded by how many guests searched for it or started booking it. --}}
 <div x-data="demandCalendar(@js($calendar))" class="cv-cal" id="demand-calendar">
     <div class="cv-cal__bar">
         <div class="d-flex align-items-center gap-2">
@@ -42,7 +42,7 @@
     <div class="cv-cal__summary">
         @if ($top)
             <span class="cv-cal__dot" aria-hidden="true"></span>
-            <span id="demand-top">Most searched check-in date ahead: <strong>{{ \Illuminate\Support\Carbon::parse($top['date'])->format('D j M') }}</strong>, {{ number_format($top['demand']) }} {{ $top['demand'] === 1 ? 'look or started booking' : 'looks and started bookings' }}. Hold the mouse over a date to see the stays behind it.</span>
+            <span id="demand-top">Most searched check-in date ahead: <strong>{{ \Illuminate\Support\Carbon::parse($top['date'])->format('D j M') }}</strong>, {{ number_format($top['demand']) }} {{ $top['demand'] === 1 ? 'search or started booking' : 'searches and started bookings' }}. Hold the mouse over a date to see the stays behind it.</span>
         @else
             <span>No upcoming stay dates yet.</span>
         @endif
@@ -55,7 +55,7 @@
                 <template x-if="data[tip.key]">
                     <div>
                         <div class="cv-cal__tip-totals">
-                            <span><strong x-text="data[tip.key].l"></strong> looked at rooms</span>
+                            <span><strong x-text="data[tip.key].l"></strong> searched</span>
                             <span><strong x-text="data[tip.key].s"></strong> started a booking</span>
                             <span><strong x-text="data[tip.key].b"></strong> booked</span>
                         </div>
@@ -138,7 +138,7 @@
                             days.push({
                                 key, n, past,
                                 cls: ['cv-heat-' + (past ? 0 : this.level(info)), past ? 'is-past' : '', key === this.today ? 'is-today' : '', key === this.selected ? 'is-selected' : ''].join(' '),
-                                label: this.fullDate(key) + (info ? ': ' + info.d + ' looks and started bookings' : ''),
+                                label: this.fullDate(key) + (info ? ': ' + info.d + ' searches and started bookings' : ''),
                             });
                         }
 

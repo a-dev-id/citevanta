@@ -35,7 +35,9 @@ function datasets(config, group) {
                 pointBorderColor: css('--cv-chart-surface') || '#fff',
                 pointBorderWidth: 2,
                 tension: 0.25,
-                spanGaps: true,
+                spanGaps: false,
+                // The comparison line is dashed; days without data stay blank, not zero.
+                borderDash: s.dash ? [6, 4] : [],
                 order: s.highlight ? 0 : 1,
             };
         });

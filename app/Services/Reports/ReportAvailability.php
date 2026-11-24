@@ -38,7 +38,7 @@ final class ReportAvailability
 
         return $table->exists() && ! self::syncRunning()
             ? self::state('no_data', 'No GA4 data in this date range', 'GA4 has no sessions for these dates. Try a longer range.', null, $hotel)
-            : self::state('syncing', 'Your data is still syncing', 'The first copy of 13 months of GA4 data runs in the background and can take a few hours. Check back later.', null, $hotel);
+            : self::state('syncing', 'Your data is still syncing', 'The first copy of the GA4 history (up to 25 months) runs in the background and can take a few hours. Check back later.', null, $hotel);
     }
 
     /**
@@ -115,6 +115,30 @@ final class ReportAvailability
         }
 
         return $warnings;
+    }
+
+    /**
+     * The first synced day and the last fully synced day of the GA4 data (the range the date picker allows).
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    public static function ga4Bounds(Hotel $hotel): array
+    {
+        $first = DB::table('ga4_traffic_daily')->where('hotel_id', $hotel->id)->min('date');
+
+        return [$first === null ? null : Carbon::parse($first), self::ga4CompleteThrough($hotel)];
+    }
+
+    /**
+     * The same for Search Console: the first and the newest stored day (never after yesterday).
+     *
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    public static function searchBounds(Hotel $hotel): array
+    {
+        $row = DB::table('gsc_daily')->where('hotel_id', $hotel->id)->selectRaw('min(date) as first, max(date) as last')->first();
+
+        return [$row?->first === null ? null : Carbon::parse($row->first), $row?->last === null ? null : Carbon::parse($row->last)->min(Carbon::yesterday())];
     }
 
     /**

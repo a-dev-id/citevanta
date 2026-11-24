@@ -455,7 +455,7 @@ class GoogleConnectionTest extends TestCase
         Bus::fake();
 
         app(GoogleSync::class)->schedule($link);
-        $first = now()->subDay()->subMonthsNoOverflow(13)->toDateString();
+        $first = now()->subDay()->subMonthsNoOverflow(25)->toDateString();
         Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC
             && $job->from === $first && $job->to === GoogleSync::windowEnd($first, now()->subDay()->toDateString()) && $job->until === now()->subDay()->toDateString());
 

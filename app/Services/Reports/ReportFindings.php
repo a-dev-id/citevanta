@@ -29,6 +29,11 @@ final class ReportFindings
         }
 
         foreach ($traffic->byLandingPage() as $page) {
+            // GA4 sometimes does not record the landing page: that is not a page to fix, so it is skipped.
+            if (self::isUnrecordedPage((string) $page['name'])) {
+                continue;
+            }
+
             if ($page['sessions'] >= self::MIN_PAGE_SESSIONS && $page['purchases'] === 0) {
                 $findings[] = $this->finding('warning', "{$page['name']} had {$page['sessions']} visits from AI assistants but no bookings. Check that this page shows rates, what is included and a clear way to book direct.", [$recommendations]);
 
@@ -53,7 +58,7 @@ final class ReportFindings
 
         if (($opportunity = $search->opportunities()[0] ?? null) !== null) {
             $page = $search->topPageFor($opportunity['name']);
-            $findings[] = $this->finding('warning', sprintf('"%s" was shown %s times at position %s, but only %.1f%% clicked.%s Improve the title and description so more people click.', $opportunity['name'], number_format($opportunity['impressions']), $opportunity['position'], $opportunity['ctr'] * 100, $page ? " The page is {$page}." : ''), [$recommendations]);
+            $findings[] = $this->finding('warning', sprintf('"%s" was shown %s times at position %s, but only %.1f%% clicked.%s Improve the title and description so more people click.', $opportunity['name'], number_format($opportunity['impressions']), $opportunity['position'], $opportunity['ctr'] * 100, $page && ! self::isUnrecordedPage($page) ? " The page is {$page}." : ''), [$recommendations]);
         }
 
         foreach ($search->seasonalGroups() as $group) {
@@ -65,6 +70,12 @@ final class ReportFindings
         }
 
         return $findings;
+    }
+
+    /** "(not set)" and empty names are pages GA4 did not record. */
+    public static function isUnrecordedPage(string $name): bool
+    {
+        return in_array(strtolower(trim($name)), ['', '(not set)', '(not provided)', '(other)'], true);
     }
 
     /**

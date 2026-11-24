@@ -26,7 +26,10 @@ final class FakeGoogleApi implements GoogleApi
 
     private const DEVICES = ['mobile', 'desktop', 'tablet'];
 
-    private const EVENTS = ['page_view', 'session_start', 'view_item', 'begin_checkout', 'purchase'];
+    private const EVENTS = ['page_view', 'session_start', 'search_dates', 'view_item', 'begin_checkout', 'purchase'];
+
+    /** Events that carry stay dates in the fake booking engine. */
+    private const STAY_EVENTS = ['search_dates', 'begin_checkout', 'purchase'];
 
     public function properties(): array
     {
@@ -78,6 +81,10 @@ final class FakeGoogleApi implements GoogleApi
                     foreach (in_array('hostName', $dimensions, true) ? ($hosts ?: ['example.com']) : [null] as $host) {
                         foreach ($hasCustom ? [0, 1, 2] : [0] as $variant) {
                             if ($eventFilter !== null && $event !== null && $event !== $eventFilter) {
+                                continue;
+                            }
+
+                            if ($hasCustom && $event !== null && ! in_array($event, self::STAY_EVENTS, true)) {
                                 continue;
                             }
 

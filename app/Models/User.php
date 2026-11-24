@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
  * @property int|null $current_team_id
  * @property bool $is_admin
  * @property bool|null $weekly_report
+ * @property int|null $report_page_size rows per page in the Reports tables (10, 50 or 100)
  * @property-read Team|null $currentTeam
  */
 #[Fillable(['name', 'email', 'password', 'current_team_id'])]
@@ -106,6 +107,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'weekly_report' => 'boolean',
+            'report_page_size' => 'integer',
         ];
     }
 }
