@@ -31,7 +31,7 @@ class ReportController extends Controller
         $period = ReportPeriod::make($request->query('range'));
         $tab = $request->query('report') === 'search' ? 'search' : 'ai';
         $link = $hotel->googleLink;
-        $data = ['hotel' => $hotel, 'period' => $period, 'tab' => $tab, 'currency' => (string) ($link?->ga4_currency ?: $hotel->currency)];
+        $data = ['hotel' => $hotel, 'period' => $period, 'tab' => $tab, 'currency' => (string) $link?->ga4_currency];
 
         if ($tab === 'search') {
             $data += ['empty' => ReportAvailability::search($hotel, $period)];
@@ -55,13 +55,16 @@ class ReportController extends Controller
             $demand = new BookingDemandReport($hotel, $period);
             $data += [
                 'summary' => $traffic->summary(), 'charts' => $traffic->charts(), 'tables' => $traffic->tables(),
-                'findings' => $this->findings->forAiTraffic($hotel, $traffic, $demand),
+                'findings' => $this->findings->forAiTraffic($hotel, $traffic),
                 'warnings' => ReportAvailability::warnings($hotel, ['receiving', 'purchases', 'cross_domain', 'ai_referrals']),
                 'bookingSetup' => ReportAvailability::bookingDates($hotel),
             ];
             $data['demandTables'] = $data['bookingSetup'] === null ? $demand->tables() : [];
-            $data['demandChart'] = $data['bookingSetup'] === null ? $demand->chart() : null;
+            $data['demandCalendar'] = $data['bookingSetup'] === null ? $demand->calendar() : null;
             $data['demandTop'] = $data['bookingSetup'] === null ? $demand->topDates() : [];
+            $data['demandStays'] = $data['bookingSetup'] === null ? $demand->stayHistogram() : null;
+            $data['demandDates'] = $data['bookingSetup'] === null ? $demand->byCheckin() : [];
+            $data['countryBars'] = array_slice($traffic->byCountry(), 0, 5);
         }
 
         return view('hotels.reports', $data);

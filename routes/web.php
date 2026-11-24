@@ -16,14 +16,12 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\TeamSettingsController;
 use App\Http\Controllers\Site\AuditController;
 use App\Http\Controllers\Site\PageController;
-use App\Http\Controllers\Site\RatesController;
 use App\Http\Controllers\Site\SeoController;
 use App\Http\Controllers\StorageFileController;
 use App\Http\Controllers\WeeklyReportController;
 use App\Http\Middleware\SetSiteLocale;
 use App\Livewire\Hotels\AccuracyPage;
 use App\Livewire\Hotels\HotelDashboard;
-use App\Livewire\Hotels\RatesManager;
 use App\Livewire\Hotels\RecommendationsPage;
 use App\Livewire\Hotels\SetupWizard;
 use App\Livewire\Settings\ConnectGoogle;
@@ -57,12 +55,6 @@ Route::livewire('audit/{token}', AuditReport::class)->name('audit.show')->where(
 // Weekly email report: one-click unsubscribe from the link in the email (signed, no login).
 Route::get('email/weekly-report/unsubscribe/{user}', WeeklyReportController::class)->middleware('signed')->name('weekly-report.unsubscribe');
 
-// Direct Rates Page: public, server-rendered pages of the rates a hotel entered, and the book-direct redirect.
-Route::get('rates/{slug}', [RatesController::class, 'show'])->name('rates.show')->where('slug', '[a-z0-9-]+');
-Route::get('rates/{slug}/{date}', [RatesController::class, 'date'])->name('rates.date')->where(['slug' => '[a-z0-9-]+', 'date' => '\d{4}-\d{2}-\d{2}']);
-Route::get('rates/{slug}/{date}/{nights}-nights', [RatesController::class, 'stay'])->name('rates.stay')->where(['slug' => '[a-z0-9-]+', 'date' => '\d{4}-\d{2}-\d{2}', 'nights' => '\d{1,2}']);
-Route::get('go/{slug}', [RatesController::class, 'go'])->middleware('throttle:60,1')->name('rates.go')->where('slug', '[a-z0-9-]+');
-
 Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('robots.txt', [SeoController::class, 'robots'])->name('robots');
 Route::get('llms.txt', [SeoController::class, 'llms'])->name('llms');
@@ -94,10 +86,10 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
     Route::get('hotels/{hotel}/citations/{domain}', [HotelController::class, 'citationDomain'])->name('hotels.citations.domain')->can('view', 'hotel');
     Route::livewire('hotels/{hotel}/accuracy', AccuracyPage::class)->name('hotels.accuracy')->can('view', 'hotel');
     Route::livewire('hotels/{hotel}/recommendations', RecommendationsPage::class)->name('hotels.recommendations')->can('view', 'hotel');
-    // Private plan: reports from synced GA4 and Search Console data, and the Direct Rates calendar.
+    // Private plan: reports from synced GA4 and Search Console data.
     Route::get('hotels/{hotel}/reports', [ReportController::class, 'show'])->name('hotels.reports')->can('view', 'hotel');
     Route::get('hotels/{hotel}/reports/export/{table}', [ReportController::class, 'export'])->name('hotels.reports.export')->can('view', 'hotel')->where('table', '[a-z-]+');
-    Route::livewire('hotels/{hotel}/rates', RatesManager::class)->name('hotels.rates')->can('update', 'hotel');
+
     Route::get('hotels/{hotel}/content/{contentPiece}/download', ContentDownloadController::class)->name('hotels.content.download')->can('view', 'hotel')->scopeBindings();
 
     // Menu shortcuts: open the current hotel's page.
@@ -108,7 +100,6 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
     Route::get('accuracy', [HotelController::class, 'current'])->defaults('section', 'accuracy')->name('accuracy.index');
     Route::get('recommendations', [HotelController::class, 'current'])->defaults('section', 'recommendations')->name('recommendations.index');
     Route::get('reports', [HotelController::class, 'current'])->defaults('section', 'reports')->name('reports.index');
-    Route::get('direct-rates', [HotelController::class, 'current'])->defaults('section', 'rates')->name('direct-rates.index');
 
     Route::get('settings/profile', [ProfileController::class, 'show'])->name('settings.profile');
     Route::get('settings/team', [TeamSettingsController::class, 'show'])->name('settings.team');

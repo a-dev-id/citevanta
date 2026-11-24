@@ -40,7 +40,6 @@ final class SidebarMenu
                 $this->item('recommendations', 'Recommendations', 'fa-lightbulb', route: 'recommendations.index', activeOn: ['recommendations.*', 'hotels.recommendations']),
                 ...($user?->currentTeam?->isPrivate() ? [
                     $this->item('reports', 'Reports', 'fa-file-lines', route: 'reports.index', activeOn: ['reports.*', 'hotels.reports*']),
-                    $this->item('direct-rates', 'Direct rates', 'fa-tags', route: 'direct-rates.index', activeOn: ['direct-rates.*', 'hotels.rates']),
                 ] : []),
                 $this->group('settings', 'Settings', 'fa-gear', [
                     $this->item('settings.team', 'Team', 'fa-users', route: 'settings.team', activeOn: 'settings.team'),

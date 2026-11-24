@@ -10,12 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Str;
 
 #[Fillable([
     'team_id', 'is_audit', 'source_audit_id', 'name', 'alternative_names', 'city', 'country', 'website', 'booking_engine_domain', 'hotel_type', 'star_rating',
     'guest_markets', 'setup_step', 'setup_completed_at',
-    'currency', 'booking_url', 'rates_description', 'rates_inclusions', 'rates_subdomain', 'rates_published',
 ])]
 class Hotel extends Model
 {
@@ -32,7 +30,6 @@ class Hotel extends Model
             'guest_markets' => 'array',
             'alternative_names' => 'array',
             'is_audit' => 'boolean',
-            'rates_published' => 'boolean',
             'setup_step' => 'integer',
             'setup_completed_at' => 'datetime',
         ];
@@ -46,38 +43,6 @@ class Hotel extends Model
     public function allNames(): array
     {
         return array_values(array_unique(array_filter([$this->name, ...(array) ($this->alternative_names ?? [])])));
-    }
-
-    protected static function booted(): void
-    {
-        // A stable public id for the rates pages; never changes when the name does.
-        static::creating(function (Hotel $hotel): void {
-            $hotel->slug ??= self::uniqueSlug((string) $hotel->name);
-        });
-    }
-
-    public static function uniqueSlug(string $name): string
-    {
-        $base = Str::slug($name) ?: 'hotel';
-        $slug = $base;
-
-        for ($i = 2; self::query()->where('slug', $slug)->exists(); $i++) {
-            $slug = $base.'-'.$i;
-        }
-
-        return $slug;
-    }
-
-    /** @return HasMany<RoomType, $this> */
-    public function roomTypes(): HasMany
-    {
-        return $this->hasMany(RoomType::class)->orderBy('position')->orderBy('id');
-    }
-
-    /** @return HasMany<HotelRate, $this> */
-    public function rates(): HasMany
-    {
-        return $this->hasMany(HotelRate::class);
     }
 
     /** @return BelongsTo<Team, $this> */

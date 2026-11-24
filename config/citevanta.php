@@ -233,24 +233,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Direct Rates Page (Private plan)
-    |--------------------------------------------------------------------------
-    */
-
-    'rates' => [
-        // The owner's calendar warns when no rate was entered or changed for this many days.
-        'stale_days' => (int) env('RATES_STALE_DAYS', 14),
-        // Longest range one bulk fill may cover, and how far ahead a public date page is shown.
-        'max_fill_days' => 366,
-        'max_ahead_days' => 540,
-        'max_nights' => 30,
-        'cache_minutes' => 1440,
-        'utm_source' => 'citevanta',
-        'utm_medium' => 'rates-page',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | AI budget (BudgetGuard, checked before every AI call)
     |--------------------------------------------------------------------------
     |

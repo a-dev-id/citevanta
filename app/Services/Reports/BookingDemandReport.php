@@ -21,6 +21,8 @@ final class BookingDemandReport
 
     public const LONGEST_STAY = 10;
 
+    public const HISTOGRAM_MAX = 15;
+
     private const COLUMNS = ['view_item' => 'looked', 'begin_checkout' => 'started', 'purchase' => 'booked'];
 
     public function __construct(private readonly Hotel $hotel, private readonly ReportPeriod $period) {}
@@ -61,36 +63,82 @@ final class BookingDemandReport
     }
 
     /**
-     * Check-in demand per week (the week's Monday), for the chart.
+     * Data for the check-in calendar: for every date from today on, what guests looked at (l), started
+     * booking (s) and booked (b), the demand (d = l + s), and the stay lengths behind it ([nights, l, s, b],
+     * most asked first; nights 0 = not known). Short keys, because this goes to the browser as JSON.
      *
-     * @return array<string, mixed>
+     * @return array{days: array<string, array<string, mixed>>, max: int, top: array{date: string, demand: int}|null, today: string}
      */
-    public function chart(): array
+    public function calendar(): array
     {
-        $weeks = [];
+        $rows = $this->events()->where('checkin', '>=', now()->toDateString())->groupBy('checkin', 'nights', 'event_name')
+            ->selectRaw('checkin, nights, event_name, sum(events) as events')->get();
+        $days = [];
+        $column = ['view_item' => 'l', 'begin_checkout' => 's', 'purchase' => 'b'];
 
-        foreach ($this->byCheckin() as $row) {
-            $monday = Carbon::parse($row['date'])->startOfWeek()->toDateString();
-            $weeks[$monday] ??= ['looked' => 0, 'started' => 0, 'booked' => 0];
-            foreach (['looked', 'started', 'booked'] as $column) {
-                $weeks[$monday][$column] += $row[$column];
-            }
+        foreach ($rows as $row) {
+            $date = Carbon::parse($row->checkin)->toDateString();
+            $key = $column[$row->event_name] ?? 'l';
+            $nights = (int) $row->nights;
+
+            $days[$date] ??= ['l' => 0, 's' => 0, 'b' => 0, 'd' => 0, 'stays' => []];
+            $days[$date]['stays'][$nights] ??= ['l' => 0, 's' => 0, 'b' => 0];
+            $days[$date][$key] += (int) $row->events;
+            $days[$date]['stays'][$nights][$key] += (int) $row->events;
         }
 
-        ksort($weeks);
-        $weeks = array_slice($weeks, 0, 26, true);
-        $labels = array_map(fn ($monday) => Carbon::parse($monday)->format('j M'), array_keys($weeks));
+        $max = 0;
+        $top = null;
 
-        return [
-            'labels' => $labels,
-            'titles' => array_map(fn ($monday) => 'Week of '.Carbon::parse($monday)->format('j M Y'), array_keys($weeks)),
-            'series' => [
-                ['key' => 'looked', 'label' => 'Looked at rooms', 'color' => 'series-1', 'data' => array_column($weeks, 'looked'), 'group' => 'all', 'highlight' => false],
-                ['key' => 'started', 'label' => 'Started a booking', 'color' => 'series-2', 'data' => array_column($weeks, 'started'), 'group' => 'all', 'highlight' => false],
-                ['key' => 'booked', 'label' => 'Booked', 'color' => 'series-3', 'data' => array_column($weeks, 'booked'), 'group' => 'all', 'highlight' => false],
-            ],
-            'unit' => '',
-        ];
+        foreach ($days as $date => &$day) {
+            $day['d'] = $day['l'] + $day['s'];
+            $stays = [];
+            foreach ($day['stays'] as $nights => $counts) {
+                $stays[] = [$nights, $counts['l'], $counts['s'], $counts['b']];
+            }
+            usort($stays, fn ($x, $y) => ($y[1] + $y[2]) <=> ($x[1] + $x[2]));
+            $day['stays'] = $stays;
+
+            $max = max($max, $day['d']);
+            if ($top === null || $day['d'] > $top['demand'] || ($day['d'] === $top['demand'] && $date < $top['date'])) {
+                $top = ['date' => $date, 'demand' => $day['d']];
+            }
+        }
+        unset($day);
+
+        ksort($days);
+
+        return ['days' => $days, 'max' => $max, 'top' => $top, 'today' => now()->toDateString()];
+    }
+
+    /**
+     * How long guests want to stay: the share of looks and started bookings per number of nights
+     * (1 to 14, then 15 or more). Null when no stay length is known.
+     *
+     * @return array{bars: list<array{n: int, label: string, demand: int, share: float}>, total: int, common: int, short_share: float}|null
+     */
+    public function stayHistogram(): ?array
+    {
+        $rows = $this->events()->whereIn('event_name', ['view_item', 'begin_checkout'])->where('nights', '>=', 1)
+            ->groupBy('nights')->selectRaw('nights, sum(events) as events')->get();
+        $demand = array_fill(1, self::HISTOGRAM_MAX, 0);
+
+        foreach ($rows as $row) {
+            $demand[min((int) $row->nights, self::HISTOGRAM_MAX)] += (int) $row->events;
+        }
+
+        $total = array_sum($demand);
+
+        if ($total === 0) {
+            return null;
+        }
+
+        $bars = [];
+        foreach ($demand as $n => $count) {
+            $bars[] = ['n' => $n, 'label' => $n === self::HISTOGRAM_MAX ? $n.'+' : (string) $n, 'demand' => $count, 'share' => $count / $total];
+        }
+
+        return ['bars' => $bars, 'total' => $total, 'common' => (int) array_search(max($demand), $demand, true), 'short_share' => array_sum(array_slice($demand, 0, 3)) / $total];
     }
 
     /**
@@ -112,21 +160,6 @@ final class BookingDemandReport
         ksort($stays);
 
         return array_values($stays);
-    }
-
-    /**
-     * Check-in dates with demand (looked + started at least $minimum), soonest first, within $days days ahead.
-     *
-     * @return list<string>
-     */
-    public function demandDates(int $minimum, int $days): array
-    {
-        $until = now()->addDays($days)->toDateString();
-
-        return array_values(array_map(
-            fn (array $row) => $row['date'],
-            array_filter($this->byCheckin(), fn (array $row) => $row['demand'] >= $minimum && $row['date'] <= $until),
-        ));
     }
 
     /**

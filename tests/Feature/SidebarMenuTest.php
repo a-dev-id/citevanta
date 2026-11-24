@@ -31,18 +31,16 @@ class SidebarMenuTest extends TestCase
         );
     }
 
-    public function test_reports_and_direct_rates_are_only_in_the_menu_of_private_teams(): void
+    public function test_reports_are_only_in_the_menu_of_private_teams(): void
     {
         $standard = User::factory()->withTeam()->create();
         $keys = collect(app(SidebarMenu::class)->sections($standard)['Navigation'])->pluck('key');
         $this->assertNotContains('reports', $keys);
-        $this->assertNotContains('direct-rates', $keys);
 
         $private = User::factory()->withTeam(Team::factory()->create(['plan' => Plan::Private]))->create();
         $items = collect(app(SidebarMenu::class)->sections($private)['Navigation'])->keyBy('key');
         $this->assertNull($items['reports']->badge);
         $this->assertSame(route('reports.index'), $items['reports']->url);
-        $this->assertSame(route('direct-rates.index'), $items['direct-rates']->url);
     }
 
     public function test_recommendations_is_a_live_link(): void

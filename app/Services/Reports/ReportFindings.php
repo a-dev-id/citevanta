@@ -7,7 +7,7 @@ use App\Models\Hotel;
 /**
  * Plain-language findings from the reports, each with a link to where the
  * hotel can act: its Recommendations (the AI visibility advice from scans),
- * the Direct Rates calendar, or the tracking check. Only numbers that are in
+ * or the tracking check. Only numbers that are in
  * the synced data are quoted.
  */
 final class ReportFindings
@@ -15,15 +15,10 @@ final class ReportFindings
     /** A landing page needs this many AI sessions before "no bookings" means something. */
     private const MIN_PAGE_SESSIONS = 10;
 
-    /** A check-in date needs this many looks and started bookings to count as demand. */
-    private const MIN_DEMAND = 3;
-
-    private const DEMAND_DAYS_AHEAD = 90;
-
     /**
      * @return list<array{level: string, text: string, actions: list<array{label: string, url: string}>}>
      */
-    public function forAiTraffic(Hotel $hotel, AiTrafficReport $traffic, BookingDemandReport $demand): array
+    public function forAiTraffic(Hotel $hotel, AiTrafficReport $traffic): array
     {
         $findings = [];
         $summary = $traffic->summary()['current'];
@@ -35,7 +30,7 @@ final class ReportFindings
 
         foreach ($traffic->byLandingPage() as $page) {
             if ($page['sessions'] >= self::MIN_PAGE_SESSIONS && $page['purchases'] === 0) {
-                $findings[] = $this->finding('warning', "{$page['name']} had {$page['sessions']} visits from AI assistants but no bookings. Check that this page shows rates, what is included and a clear way to book direct.", [$recommendations, $this->ratesAction($hotel)]);
+                $findings[] = $this->finding('warning', "{$page['name']} had {$page['sessions']} visits from AI assistants but no bookings. Check that this page shows rates, what is included and a clear way to book direct.", [$recommendations]);
 
                 break;
             }
@@ -43,11 +38,6 @@ final class ReportFindings
 
         if ($summary['ai_purchases'] > 0 && $summary['purchase_share'] > $summary['session_share']) {
             $findings[] = $this->finding('success', sprintf('Visitors from AI assistants are %.1f%% of your sessions but %.1f%% of your bookings: they book more often than your average visitor.', $summary['session_share'] * 100, $summary['purchase_share'] * 100), [$recommendations]);
-        }
-
-        $unpriced = $this->datesWithoutRates($hotel, $demand);
-        if ($unpriced !== []) {
-            $findings[] = $this->finding('warning', 'Guests look for stays starting '.implode(', ', array_map(fn ($date) => date('j M', strtotime($date)), array_slice($unpriced, 0, 5))).', but your Direct Rates Page has no rate for these dates. AI assistants will say "rates on request".', [$this->ratesAction($hotel)]);
         }
 
         return $findings;
@@ -68,38 +58,13 @@ final class ReportFindings
 
         foreach ($search->seasonalGroups() as $group) {
             if ($group['impressions'] > 0 && $group['name'] !== 'Months') {
-                $findings[] = $this->finding('info', sprintf('People search for %s: %s impressions and %s clicks. Make sure your rates for that season are on your Direct Rates Page and your website has an offer page for it.', $group['name'], number_format($group['impressions']), number_format($group['clicks'])), [$this->ratesAction($hotel), $recommendations]);
+                $findings[] = $this->finding('info', sprintf('People search for %s: %s impressions and %s clicks. Make sure your website has an offer page for that season.', $group['name'], number_format($group['impressions']), number_format($group['clicks'])), [$recommendations]);
 
                 break;
             }
         }
 
         return $findings;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function datesWithoutRates(Hotel $hotel, BookingDemandReport $demand): array
-    {
-        $dates = $demand->demandDates(self::MIN_DEMAND, self::DEMAND_DAYS_AHEAD);
-
-        if ($dates === []) {
-            return [];
-        }
-
-        $priced = $hotel->rates()->whereIn('date', $dates)->where('is_available', true)->whereNotNull('price')->pluck('date')
-            ->map(fn ($date) => $date->toDateString())->all();
-
-        return array_values(array_diff($dates, $priced));
-    }
-
-    /**
-     * @return array{label: string, url: string}
-     */
-    private function ratesAction(Hotel $hotel): array
-    {
-        return ['label' => 'Open Direct Rates', 'url' => route('hotels.rates', $hotel)];
     }
 
     /**

@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Site;
 
 use App\Http\Controllers\Controller;
-use App\Models\Hotel;
 use App\Services\Plans\PlanCatalog;
 use App\Services\Site\PublicPages;
 use App\Services\Site\SiteContent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 
 /**
@@ -37,19 +35,6 @@ class SeoController extends Controller
             }
         }
 
-        // Direct Rates Pages of published hotels (the date pages are reached from them).
-        foreach ($this->ratesHotels() as $hotel) {
-            $updated = $hotel->rates()->max('updated_at');
-            $xml[] = '  <url>';
-            $xml[] = '    <loc>'.e(route('rates.show', $hotel->slug)).'</loc>';
-            if ($updated) {
-                $xml[] = '    <lastmod>'.e(gmdate('Y-m-d', strtotime((string) $updated))).'</lastmod>';
-            }
-            $xml[] = '    <changefreq>weekly</changefreq>';
-            $xml[] = '    <priority>0.6</priority>';
-            $xml[] = '  </url>';
-        }
-
         $xml[] = '</urlset>';
 
         return response(implode("\n", $xml)."\n", 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
@@ -64,7 +49,6 @@ class SeoController extends Controller
         $lines = [
             'User-agent: *',
             'Allow: /',
-            'Allow: /rates/',
             'Disallow: /dashboard',
             'Disallow: /hotels',
             'Disallow: /admin',
@@ -72,7 +56,6 @@ class SeoController extends Controller
             'Disallow: /billing',
             'Disallow: /email/',
             'Disallow: /audit/',
-            'Disallow: /go/',
             'Disallow: /cron',
             'Disallow: /webhooks',
             '',
@@ -153,17 +136,6 @@ class SeoController extends Controller
         $lines[] = '- Annual billing: '.$plans->annualMonths().' x the monthly price.';
         $lines[] = '- Free trial: '.$plans->trialDays().' days with a limited scan of 15 questions on ChatGPT, no card needed.';
         $lines[] = '- '.$content->t('pricing.groups_text');
-        $hotels = $this->ratesHotels();
-        if ($hotels->isNotEmpty()) {
-            $lines[] = '';
-            $lines[] = '## Direct rates';
-            $lines[] = '';
-            $lines[] = 'Hotels publish the rates they entered themselves, with the time they were last updated. A date without a rate says "rates on request". Dates have their own pages: /rates/{hotel}/{yyyy-mm-dd}.';
-            foreach ($hotels as $hotel) {
-                $lines[] = '- ['.$hotel->name.']('.route('rates.show', $hotel->slug).'): direct rates and booking link, '.$hotel->city.($hotel->country ? ', '.$hotel->country : '');
-            }
-        }
-
         $lines[] = '';
         $lines[] = '## FAQ';
         $lines[] = '';
@@ -175,16 +147,5 @@ class SeoController extends Controller
         }
 
         return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
-    }
-
-    /**
-     * Hotels whose Direct Rates Page is public.
-     *
-     * @return Collection<int, Hotel>
-     */
-    private function ratesHotels()
-    {
-        return Hotel::query()->where('rates_published', true)->where('is_audit', false)->with('team')->orderBy('name')->get()
-            ->filter(fn (Hotel $hotel) => $hotel->team->isPrivate())->values();
     }
 }

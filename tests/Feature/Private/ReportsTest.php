@@ -205,7 +205,7 @@ class ReportsTest extends TestCase
         $this->assertGreaterThan(0, $expected);
         $this->assertSame($expected, (new AiTrafficReport($hotel, ReportPeriod::make('28d')))->summary()['current']['ai_sessions']);
 
-        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('Demand by date')->assertSee('Check-in demand by week')->assertSee('Length of stay');
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('Demand by date')->assertSee('Demand by check-in date')->assertSee('id="demand-calendar"', false)->assertSee('Length of stay');
         $this->actingAs($owner)->get(route('hotels.reports', [$hotel, 'report' => 'search']))->assertOk()->assertSee('Top queries')->assertSee('Seasonal query groups');
     }
 
@@ -238,6 +238,92 @@ class ReportsTest extends TestCase
         $this->assertSame(2, $stays[10]['looked']);
     }
 
+    public function test_the_calendar_shades_each_night_and_lists_the_stays_behind_it(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        $rows = [
+            ['2026-11-10', 'view_item', '2026-12-10', '2026-12-13', 3, 300],
+            ['2026-11-10', 'begin_checkout', '2026-12-10', '2026-12-13', 3, 100],
+            ['2026-11-11', 'view_item', '2026-12-10', '2026-12-12', 2, 50],
+            ['2026-11-11', 'purchase', '2026-12-10', '2026-12-13', 3, 5],
+            ['2026-11-11', 'view_item', '2026-12-24', '2026-12-25', 1, 100],
+            ['2026-11-11', 'view_item', '2026-10-01', '2026-10-02', 1, 999],
+        ];
+        foreach ($rows as [$date, $event, $in, $out, $nights, $events]) {
+            DB::table('ga4_booking_dates_daily')->insert(['hotel_id' => $hotel->id, 'date' => $date, 'row_key' => sha1(json_encode([$date, $event, $in, $out])), 'event_name' => $event, 'checkin' => $in, 'checkout' => $out, 'nights' => $nights, 'events' => $events]);
+        }
+
+        $this->traffic($hotel, '2026-11-10', 'chatgpt.com');
+        $calendar = (new BookingDemandReport($hotel, ReportPeriod::make('28d')))->calendar();
+
+        $this->assertSame(['2026-12-10', '2026-12-24'], array_keys($calendar['days']), 'past nights are not shown');
+        $this->assertSame(450, $calendar['max']);
+        $this->assertSame(['date' => '2026-12-10', 'demand' => 450], $calendar['top']);
+        $this->assertSame('2026-11-24', $calendar['today']);
+
+        $day = $calendar['days']['2026-12-10'];
+        $this->assertSame([350, 100, 5, 450], [$day['l'], $day['s'], $day['b'], $day['d']]);
+        $this->assertSame([[3, 300, 100, 5], [2, 50, 0, 0]], $day['stays'], 'the most asked stay length comes first');
+
+        $page = $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk();
+        $page->assertSee('Most searched check-in date ahead:')->assertSee('Thu 10 Dec')->assertSee('450 looks and started bookings');
+        $page->assertSee('from all visitors, not only from AI assistants');
+        $this->assertStringContainsString('"2026-12-10":{"l":350,"s":100,"b":5,"d":450', str_replace(['&quot;', '\u0022', '\/'], ['"', '"', '/'], $page->getContent()));
+    }
+
+    public function test_the_calendar_has_a_friendly_text_when_there_are_no_upcoming_stays(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        DB::table('ga4_booking_dates_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-11-10', 'row_key' => 'old', 'event_name' => 'view_item', 'checkin' => '2026-10-01', 'checkout' => null, 'nights' => null, 'events' => 4]);
+        $this->traffic($hotel, '2026-11-10', 'chatgpt.com');
+
+        $calendar = (new BookingDemandReport($hotel, ReportPeriod::make('28d')))->calendar();
+        $this->assertSame(['days' => [], 'max' => 0, 'top' => null, 'today' => '2026-11-24'], $calendar);
+
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertSee('No upcoming stay dates yet.');
+    }
+
+    public function test_the_demand_section_has_tabs_a_csv_download_and_a_length_of_stay_chart(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        $this->traffic($hotel, '2026-11-10', 'chatgpt.com', ['sessions' => 30, 'country' => 'Australia']);
+        $this->traffic($hotel, '2026-11-10', 'perplexity.ai', ['sessions' => 10, 'country' => 'Germany']);
+        $rows = [
+            ['view_item', '2026-12-24', 3, 60], ['begin_checkout', '2026-12-24', 3, 20], ['view_item', '2026-12-26', 5, 15],
+            ['view_item', '2026-12-30', 1, 5], ['view_item', '2026-12-31', 20, 2], ['purchase', '2026-12-24', 3, 99],
+        ];
+        foreach ($rows as $i => [$event, $in, $nights, $events]) {
+            DB::table('ga4_booking_dates_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-11-10', 'row_key' => 'k'.$i, 'event_name' => $event, 'checkin' => $in, 'checkout' => null, 'nights' => $nights, 'events' => $events]);
+        }
+
+        $stays = (new BookingDemandReport($hotel, ReportPeriod::make('28d')))->stayHistogram();
+
+        $this->assertSame(102, $stays['total'], 'looks and started bookings only; purchases are not demand');
+        $this->assertSame(3, $stays['common']);
+        $this->assertEqualsWithDelta(85 / 102, $stays['short_share'], 0.0001, 'stays of 1 to 3 nights');
+        $bars = collect($stays['bars'])->keyBy('n');
+        $this->assertSame([80, 15, 5, 2], [$bars[3]['demand'], $bars[5]['demand'], $bars[1]['demand'], $bars[15]['demand']]);
+        $this->assertSame('15+', $bars[15]['label'], 'a 20 night stay is counted as 15 or more');
+        $this->assertCount(15, $stays['bars']);
+
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()
+            ->assertSee('Popular dates')->assertSee('Every date')
+            ->assertSee('Most common length of stay')->assertSee('3 nights')
+            ->assertSee('Stays of 1 to 3 nights were 83% of the searches')
+            ->assertDontSee('Download demand by date (CSV)')
+            ->assertSee('Where AI visitors come from')->assertSee('Australia')->assertSee('30 · 75%')->assertSee('Germany');
+    }
+
+    public function test_the_length_of_stay_chart_is_left_out_when_no_stay_length_is_known(): void
+    {
+        [$owner, $hotel] = $this->privateHotel();
+        $this->traffic($hotel, '2026-11-10', 'chatgpt.com');
+        DB::table('ga4_booking_dates_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-11-10', 'row_key' => 'k', 'event_name' => 'view_item', 'checkin' => '2026-12-24', 'checkout' => null, 'nights' => null, 'events' => 9]);
+
+        $this->assertNull((new BookingDemandReport($hotel, ReportPeriod::make('28d')))->stayHistogram());
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertDontSee('Most common length of stay')->assertSee('id="demand-calendar"', false);
+    }
+
     public function test_without_mapped_booking_dates_the_report_shows_the_setup_hint(): void
     {
         [$owner, $hotel, $link] = $this->privateHotel(mapped: false);
@@ -248,7 +334,7 @@ class ReportsTest extends TestCase
             ->assertSee('Booking dates are not available yet')
             ->assertSee('GA4 has no custom dimensions for booking dates.')
             ->assertSee('could you send the stay dates')
-            ->assertDontSee('Check-in demand by week');
+            ->assertDontSee('id="demand-calendar"', false);
     }
 
     public function test_booking_dates_are_synced_once_the_fields_are_mapped_and_resynced_when_the_mapping_changes(): void
@@ -309,20 +395,17 @@ class ReportsTest extends TestCase
         $this->assertFalse($groups->has('Easter'));
     }
 
-    public function test_findings_link_to_recommendations_and_direct_rates(): void
+    public function test_findings_link_to_the_recommendations(): void
     {
         [$owner, $hotel] = $this->privateHotel();
         $this->traffic($hotel, '2026-11-10', 'chatgpt.com', ['sessions' => 25, 'page' => '/rooms']);
         $this->traffic($hotel, '2026-11-11', 'chatgpt.com', ['sessions' => 40, 'page' => '/offers', 'purchases' => 2]);
-        DB::table('ga4_booking_dates_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-11-10', 'row_key' => 'k1', 'event_name' => 'view_item', 'checkin' => '2026-12-24', 'checkout' => '2026-12-27', 'nights' => 3, 'events' => 8]);
 
         $response = $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk();
 
         $response->assertSee('/rooms had 25 visits from AI assistants but no bookings')
             ->assertSee('/offers', false)
-            ->assertSee('has no rate for these dates')
-            ->assertSee(route('hotels.recommendations', $hotel), false)
-            ->assertSee(route('hotels.rates', $hotel), false);
+            ->assertSee(route('hotels.recommendations', $hotel), false);
 
         $response->assertDontSee('/offers had 40 visits');
     }

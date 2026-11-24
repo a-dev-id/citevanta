@@ -871,3 +871,306 @@ $cv-badge-variants: (
     border-bottom: 1px solid $cv-card-border-color;
     background: rgba($cv-neutral, .05);
 }
+
+// -- Demand calendar (Reports: check-in dates by how often guests looked) ------------
+.cv-cal__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.cv-cal__legend {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: $cv-font-size-sm;
+    color: var(--bs-secondary-color);
+}
+
+.cv-cal__swatch {
+    display: inline-block;
+    width: .8rem;
+    height: .8rem;
+    border-radius: .25rem;
+}
+
+.cv-cal__month {
+    margin-bottom: .6rem;
+    font-size: .9rem;
+    font-weight: 600;
+}
+
+.cv-cal__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .3rem;
+}
+
+.cv-cal__wd {
+    font-size: .65rem;
+    letter-spacing: .04em;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.cv-cal__day {
+    aspect-ratio: 1;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: .5rem;
+    font-size: .78rem;
+    color: var(--bs-body-color);
+
+    &:not(:disabled) {
+        cursor: pointer;
+    }
+
+    &.is-past {
+        opacity: .35;
+    }
+
+    &.is-today {
+        border-color: var(--bs-body-color);
+    }
+
+    &.is-selected {
+        box-shadow: 0 0 0 2px var(--bs-primary);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 1px;
+    }
+}
+
+// Five shades of the brand colour, from "nobody looked" to "the most looked at".
+$cv-heat-levels: (0: 0%, 1: 14%, 2: 30%, 3: 50%, 4: 75%, 5: 100%);
+
+@each $level, $percent in $cv-heat-levels {
+    .cv-heat-#{$level} {
+        background: color-mix(in srgb, var(--bs-primary) #{$percent}, var(--bs-tertiary-bg));
+
+        @if $level >= 4 {
+            color: #fff;
+        }
+    }
+}
+
+.cv-cal__summary {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid $cv-card-border-color;
+    font-size: .85rem;
+}
+
+.cv-cal__dot {
+    flex: none;
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: var(--bs-primary);
+}
+
+.cv-cal {
+    position: relative;
+}
+
+.cv-cal__tip {
+    position: absolute;
+    z-index: 5;
+    width: 18rem;
+    max-width: calc(100% - 1rem);
+    padding: .75rem .9rem;
+    border-radius: .6rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .18);
+    border: 1px solid $cv-card-border-color;
+    font-size: .8rem;
+    transform: translate(-50%, calc(-100% - .5rem));
+    pointer-events: none;
+}
+
+.cv-cal__tip-title {
+    margin-bottom: .35rem;
+    font-weight: 600;
+}
+
+.cv-cal__tip-totals {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    margin-bottom: .5rem;
+    color: var(--bs-secondary-color);
+}
+
+.cv-cal__tip-table {
+    width: 100%;
+    font-size: .75rem;
+
+    th,
+    td {
+        padding: .15rem .25rem;
+        text-align: right;
+    }
+
+    th:first-child,
+    td:first-child {
+        text-align: left;
+    }
+
+    th {
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+    }
+}
+
+// -- Demand section: tabs, length-of-stay chart, ranked bars --------------------------
+.cv-tabs {
+    display: inline-flex;
+    gap: .25rem;
+    padding: .25rem;
+    border-radius: .6rem;
+    background: var(--bs-tertiary-bg);
+
+    button {
+        padding: .35rem .9rem;
+        border: 0;
+        border-radius: .45rem;
+        background: transparent;
+        font-size: .85rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+
+        &.is-active {
+            background: var(--bs-primary);
+            color: #fff;
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 2px;
+        }
+    }
+}
+
+.cv-tabs__count {
+    margin-left: .25rem;
+    padding: .05rem .4rem;
+    border-radius: 1rem;
+    background: rgba(0, 0, 0, .08);
+    font-size: .7rem;
+}
+
+.cv-stays__head {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .8rem;
+    color: var(--bs-secondary-color);
+}
+
+.cv-stays__headline {
+    margin: .15rem 0 1rem;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.cv-stays__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: .35rem;
+    height: 7rem;
+}
+
+.cv-stays__col {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+    min-width: 0;
+    height: 100%;
+}
+
+.cv-stays__bar {
+    display: block;
+    border-radius: .25rem .25rem 0 0;
+    background: color-mix(in srgb, var(--bs-primary) 30%, var(--bs-tertiary-bg));
+
+    &.is-peak {
+        background: var(--bs-primary);
+    }
+}
+
+.cv-stays__label {
+    margin-top: .3rem;
+    font-size: .7rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.cv-stays__axis {
+    margin: .25rem 0 .75rem;
+    font-size: .7rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.cv-download {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid $cv-card-border-color;
+}
+
+.cv-eyebrow {
+    margin-bottom: .6rem;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.cv-barlist__head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: .75rem;
+    font-size: .7rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.cv-barlist__row {
+    display: grid;
+    grid-template-columns: minmax(7rem, 12rem) 1fr auto;
+    align-items: center;
+    gap: .75rem;
+    padding: .35rem 0;
+    font-size: .85rem;
+}
+
+.cv-barlist__track {
+    height: .5rem;
+    border-radius: 1rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.cv-barlist__fill {
+    display: block;
+    height: 100%;
+    border-radius: 1rem;
+    background: var(--bs-success);
+}
+
+.cv-barlist__value {
+    min-width: 5rem;
+    text-align: right;
+    color: var(--bs-secondary-color);
+}

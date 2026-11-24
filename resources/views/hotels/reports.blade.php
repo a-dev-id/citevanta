@@ -119,11 +119,38 @@
                     </x-empty-state>
                 </x-card>
             @else
-                <x-card title="Check-in demand by week" subtitle="What guests looked at and started booking, by the date they want to arrive" :collapsible="false" class="mb-3">
-                    <x-chart id="cv-chart-demand" type="bar" :stacked="true" :chart="$demandChart" column="Check-in week" label="Demand by check-in week" />
-                </x-card>
-                <div class="mb-3"><x-report-table :table="$demandTables['demand-checkin']" :rows="$demandTop" :hotel="$hotel" :period="$period" /></div>
-                <div class="mb-3"><x-report-table :table="$demandTables['demand-stay']" :hotel="$hotel" :period="$period" /></div>
+                <div x-data="{ tab: 'popular' }" id="demand-section">
+                    <div class="cv-tabs mb-3" role="tablist" aria-label="Demand view">
+                        <button type="button" role="tab" id="tab-popular" :aria-selected="tab === 'popular' ? 'true' : 'false'" :class="{ 'is-active': tab === 'popular' }" @click="tab = 'popular'">Popular dates</button>
+                        <button type="button" role="tab" id="tab-every" :aria-selected="tab === 'every' ? 'true' : 'false'" :class="{ 'is-active': tab === 'every' }" @click="tab = 'every'">Every date <span class="cv-tabs__count">{{ count($demandDates) }}</span></button>
+                    </div>
+
+                    <div x-show="tab === 'popular'" role="tabpanel" aria-labelledby="tab-popular">
+                        <div class="alert alert-light border small d-flex gap-2" role="note">
+                            <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
+                            <span>The stay dates guests searched for on your website and booking engine, and the ones they started to book. Each night is shaded by how often it was looked at; hold the mouse over a night to see the stays behind it. This is GA4 data from all visitors, not only from AI assistants.</span>
+                        </div>
+                        <x-card :collapsible="false" class="mb-3">
+                            <x-demand-calendar :calendar="$demandCalendar" />
+                            @if ($demandStays)
+                                <hr class="my-4">
+                                <x-stay-histogram :stays="$demandStays" />
+                            @endif
+                        </x-card>
+                    </div>
+
+                    <div x-show="tab === 'every'" x-cloak role="tabpanel" aria-labelledby="tab-every">
+                        <div class="mb-3"><x-report-table :table="$demandTables['demand-checkin']" :rows="$demandDates" :limit="200" :hotel="$hotel" :period="$period" /></div>
+                    </div>
+
+                </div>
+
+                @if ($countryBars !== [])
+                    <h3 class="cv-eyebrow mt-4">Where AI visitors come from</h3>
+                    <x-card :collapsible="false" class="mb-3">
+                        <x-bar-list :rows="$countryBars" title="Countries" :total="$summary['current']['ai_sessions']" unit="visits" />
+                    </x-card>
+                @endif
             @endif
         @else
             <div class="row g-3 mb-3" id="search-summary">
