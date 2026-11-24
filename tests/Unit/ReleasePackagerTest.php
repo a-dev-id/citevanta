@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Deploy\ReleasePackager;
+use App\Services\Deploy\StaleCacheGuard;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -33,7 +34,71 @@ class ReleasePackagerTest extends TestCase
             ['storage/framework/views/x.php'], ['storage/app/private/file.txt'], ['bootstrap/cache/config.php'],
             ['bootstrap/cache/packages.php'], ['public/hot'], ['public/storage/x.jpg'], ['.claude/settings.json'],
             ['CLAUDE.md'], ['.mcp.json'], ['releases/citevanta-old.zip'], ['database/database.sqlite'],
+            ['setup.log'], ['install.log'], ['check-env.php'], ['check_db.php'], ['cost-probe.php'], ['scan-probe.php'],
         ];
+    }
+
+    public static function publicHtmlIncluded(): array
+    {
+        return [
+            ['build/manifest.json'], ['build/assets/app-abc.css'], ['favicon.ico'], ['favicon.svg'], ['apple-touch-icon.png'],
+            ['icon-192.png'], ['icon-512.png'], ['images/cv-logo.png'], ['robots.txt'], ['llms.txt'], ['site.webmanifest'],
+            ['nested/index.php'],
+        ];
+    }
+
+    #[DataProvider('publicHtmlIncluded')]
+    public function test_public_files_go_to_public_html(string $path): void
+    {
+        $this->assertTrue(ReleasePackager::shouldIncludePublic($path), $path);
+    }
+
+    public function test_the_public_folder_comes_from_the_production_app_url(): void
+    {
+        $this->assertSame('public_html/citevanta.a-dashboard.com', ReleasePackager::publicFolderFor("APP_ENV=production\nAPP_URL=https://citevanta.a-dashboard.com\n"));
+        $this->assertSame('public_html/citevanta.com', ReleasePackager::publicFolderFor('APP_URL="https://CiteVanta.com/"'));
+        $this->assertNull(ReleasePackager::publicFolderFor("APP_URL=\n"));
+        $this->assertNull(ReleasePackager::publicFolderFor('APP_NAME=x'));
+    }
+
+    public static function publicHtmlExcluded(): array
+    {
+        return [['index.php'], ['.htaccess'], ['hot'], ['storage/x.jpg'], ['storage'], ['.gitignore']];
+    }
+
+    #[DataProvider('publicHtmlExcluded')]
+    public function test_the_servers_own_index_and_htaccess_are_never_overwritten(string $path): void
+    {
+        $this->assertFalse(ReleasePackager::shouldIncludePublic($path), $path);
+    }
+
+    public function test_copy_public_builds_public_html_without_index_and_htaccess(): void
+    {
+        $source = sys_get_temp_dir().DIRECTORY_SEPARATOR.'citevanta-public-src-'.uniqid();
+        $target = sys_get_temp_dir().DIRECTORY_SEPARATOR.'citevanta-public-dst-'.uniqid();
+        mkdir($source.'/build/assets', 0777, true);
+        mkdir($source.'/images', 0777, true);
+        foreach (['index.php', '.htaccess', 'favicon.ico', 'build/manifest.json', 'build/assets/a.css', 'images/logo.png'] as $file) {
+            file_put_contents($source.'/'.$file, 'x');
+        }
+
+        $count = (new ReleasePackager)->copyPublic($source, $target);
+
+        $copied = array_map(fn ($file) => substr(str_replace('\\', '/', $file), strlen(str_replace('\\', '/', $target)) + 1), $this->filesIn($target));
+        sort($copied);
+        $this->assertSame(['build/assets/a.css', 'build/manifest.json', 'favicon.ico', 'images/logo.png'], $copied);
+        $this->assertSame(4, $count);
+    }
+
+    /** @return list<string> */
+    private function filesIn(string $folder): array
+    {
+        $files = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folder, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            $files[] = $file->getPathname();
+        }
+
+        return $files;
     }
 
     #[DataProvider('excluded')]
@@ -89,6 +154,32 @@ class ReleasePackagerTest extends TestCase
 
         $this->assertSame(2, $deleted);
         $this->assertSame(['citevanta-2026-11-20-100000.zip', 'notes.txt'], $remaining);
+    }
+
+    public function test_prune_can_keep_several_zips(): void
+    {
+        $folder = sys_get_temp_dir().DIRECTORY_SEPARATOR.'citevanta-prune2-'.uniqid();
+        mkdir($folder);
+        foreach (['old.zip', 'app.zip', 'public.zip'] as $file) {
+            file_put_contents($folder.DIRECTORY_SEPARATOR.$file, 'x');
+        }
+
+        $deleted = (new ReleasePackager)->pruneOldReleases($folder, [$folder.DIRECTORY_SEPARATOR.'app.zip', $folder.DIRECTORY_SEPARATOR.'public.zip']);
+
+        $remaining = array_values(array_diff(scandir($folder), ['.', '..']));
+        array_map('unlink', array_map(fn ($f) => $folder.DIRECTORY_SEPARATOR.$f, $remaining));
+        rmdir($folder);
+
+        $this->assertSame(1, $deleted);
+        $this->assertSame(['app.zip', 'public.zip'], $remaining);
+    }
+
+    public function test_release_json_carries_id_version_and_build_time(): void
+    {
+        $data = json_decode(StaleCacheGuard::releaseFile('abc', '1.6.0', '2026-11-24'), true);
+
+        $this->assertSame(['id', 'version', 'build_date', 'built_at'], array_keys($data));
+        $this->assertSame(['abc', '1.6.0', '2026-11-24'], [$data['id'], $data['version'], $data['build_date']]);
     }
 
     public function test_windows_paths_are_normalised(): void

@@ -56,8 +56,11 @@ final class StaleCacheGuard
     /**
      * Contents of release.json for a new release zip.
      */
-    public static function releaseFile(string $id): string
+    public static function releaseFile(string $id, string $version = '', string $buildDate = ''): string
     {
-        return (string) json_encode(['id' => $id, 'built_at' => gmdate('c')], JSON_PRETTY_PRINT);
+        return (string) json_encode(
+            ['id' => $id, 'version' => $version, 'build_date' => $buildDate, 'built_at' => gmdate('c')],
+            JSON_PRETTY_PRINT,
+        );
     }
 }

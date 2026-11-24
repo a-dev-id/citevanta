@@ -57,6 +57,7 @@ Route::get('email/weekly-report/unsubscribe/{user}', WeeklyReportController::cla
 Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 Route::get('robots.txt', [SeoController::class, 'robots'])->name('robots');
 Route::get('llms.txt', [SeoController::class, 'llms'])->name('llms');
+Route::get('site.webmanifest', [SeoController::class, 'manifest'])->name('manifest');
 
 // Serves public storage files when the host does not allow a storage symlink
 // (see DeployTasks). With the symlink in place the web server serves them directly.

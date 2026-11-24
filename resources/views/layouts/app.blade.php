@@ -47,6 +47,12 @@
 
         <footer class="cv-footer">
             &copy; {{ now()->year }} {{ config('app.name') }} · AI visibility for hotels
+            @if (auth()->user()?->is_admin)
+                · <span title="Version and build date of this installation">{{ \App\Services\Deploy\ReleaseInfo::label() }}</span>
+                @if ($uploadedRelease = \App\Services\Deploy\ReleaseInfo::uploaded())
+                    · release <span title="Id of the uploaded zip (release.json)">{{ $uploadedRelease['id'] }}</span>
+                @endif
+            @endif
         </footer>
     </main>
 

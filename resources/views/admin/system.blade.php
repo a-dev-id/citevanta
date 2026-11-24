@@ -7,6 +7,30 @@
 <x-layouts::app title="System" :breadcrumbs="['Admin' => null, 'System' => null]">
     <x-flash />
 
+    @php($uploaded = \App\Services\Deploy\ReleaseInfo::uploaded())
+    <p class="small text-muted" id="release-version">
+        <i class="fa-solid fa-tag me-1" aria-hidden="true"></i>
+        Version <strong>{{ \App\Services\Deploy\ReleaseInfo::label() }}</strong>
+        @if ($uploaded)
+            · release <code>{{ $uploaded['id'] }}</code>
+            @if (\App\Services\Deploy\ReleaseInfo::builtAt())
+                · built {{ \App\Services\Deploy\ReleaseInfo::builtAt() }}
+            @endif
+        @else
+            · no release.json (local development)
+        @endif
+    </p>
+    @php($matches = \App\Services\Deploy\ReleaseInfo::matchesConfig())
+    @if ($matches === true)
+        <p class="small text-success" id="release-match"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i> release.json and the running code agree (version {{ $uploaded['version'] }}).</p>
+    @elseif ($matches === false)
+        <div class="alert alert-warning" role="alert" id="release-match">
+            <i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>
+            <strong>The upload looks half done.</strong> release.json says version {{ $uploaded['version'] }}, but the running code is version {{ \App\Services\Deploy\ReleaseInfo::version() }}.
+            Extract the app zip again (Overwrite existing files on), wait up to 5 minutes, then click Clear caches.
+        </div>
+    @endif
+
     @if (! $budget)
         <div class="alert alert-warning" role="alert">
             <i class="fa-solid fa-database me-1" aria-hidden="true"></i>

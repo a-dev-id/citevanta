@@ -66,7 +66,7 @@ final class SiteContent
             '@id' => url('/').'#organization',
             'name' => config('app.name'),
             'url' => url('/'),
-            'logo' => asset('images/icon-512.png'),
+            'logo' => asset('icon-512.png'),
             'description' => $this->t('meta.tagline'),
         ];
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Plans\PlanCatalog;
 use App\Services\Site\PublicPages;
 use App\Services\Site\SiteContent;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
 
@@ -62,6 +63,32 @@ class SeoController extends Controller
         ];
 
         return response(implode("\n", $lines)."\n", 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    }
+
+    /**
+     * Web app manifest for the browser tab / home screen icons. Served by the
+     * app (not a static file) so the name always comes from config('app.name').
+     */
+    public function manifest(): JsonResponse
+    {
+        $name = (string) config('app.name');
+        $version = '?v='.config('citevanta.asset_version');
+
+        return response()->json([
+            'name' => $name,
+            'short_name' => $name,
+            'description' => __('site.meta.home_description', ['app' => $name]),
+            'start_url' => '/',
+            'scope' => '/',
+            'display' => 'browser',
+            'theme_color' => (string) config('citevanta.brand_color'),
+            'background_color' => '#ffffff',
+            'icons' => [
+                ['src' => asset('icon-192.png').$version, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+                ['src' => asset('icon-512.png').$version, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+                ['src' => asset('favicon.svg').$version, 'sizes' => 'any', 'type' => 'image/svg+xml'],
+            ],
+        ], 200, ['Content-Type' => 'application/manifest+json; charset=UTF-8']);
     }
 
     /**

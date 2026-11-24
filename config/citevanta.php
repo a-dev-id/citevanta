@@ -16,6 +16,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Release
+    |--------------------------------------------------------------------------
+    |
+    | version + build_date identify a release: shown in the app footer for
+    | admins and on Admin > System, and used in the release zip's file name,
+    | so local and live can be compared at a glance. Change both when you
+    | build a new release (php artisan citevanta:package).
+    |
+    | asset_version (APP_ASSET_VERSION): added as ?v= to the favicon and
+    | manifest links. Raise it to make browsers fetch a changed icon.
+    | brand_color: theme colour of the web app manifest (the Sass $cv-primary).
+    */
+
+    'version' => '1.6.0',
+
+    'build_date' => '2026-11-24',
+
+    'asset_version' => env('APP_ASSET_VERSION', 1),
+
+    'brand_color' => '#0088cc',
+
+    /*
+    |--------------------------------------------------------------------------
     | Plans
     |--------------------------------------------------------------------------
     |

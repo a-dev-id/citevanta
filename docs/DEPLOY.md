@@ -415,6 +415,18 @@ php artisan up
 
 ### Without SSH
 
+> **Since release 1.6.0 the zip mirrors the server.** It has the folders
+> `citevanta/` (the app) and `public_html/{your domain}/` (the public files,
+> without the server's own `index.php` and `.htaccess`). Upload it to your
+> **home folder** (`/home/USER`), not into `citevanta`, and Extract it there
+> once. It is named `citevanta-release-{version}-{date}.zip` and contains
+> `citevanta/RELEASE.md` with the changes, the new `.env` keys and the exact
+> steps: follow those. The domain folder comes from `APP_URL` in
+> `.env.production.example` (or `php artisan citevanta:package --public-folder=...`).
+> Before building, set `version` and `build_date` in `config/citevanta.php`
+> and update `RELEASE.md` in the project root. The steps below describe the
+> older single-folder zip; the overwrite and deploy-task steps are the same.
+
 1. On your computer: `php artisan citevanta:package`.
 2. In File Manager, upload the new zip to `/home/USER/citevanta` and
    **Extract** it there, letting it **overwrite** existing files.

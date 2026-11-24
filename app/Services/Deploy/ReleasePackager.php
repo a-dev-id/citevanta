@@ -61,7 +61,78 @@ final class ReleasePackager
             return basename($path) === '.gitignore';
         }
 
+        // Local helper files at the project root: setup.log, other logs, and
+        // check or cost-probe scripts. They never belong on the server.
+        if (! str_contains($path, '/')
+            && (str_ends_with($path, '.log') || preg_match('/^(check|probe|cost-probe)[-_.]|[-_.]probe\.\w+$/i', $path) === 1)) {
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * The site's document root inside the hosting account's home folder,
+     * from the production APP_URL: "https://citevanta.a-dashboard.com" ->
+     * "public_html/citevanta.a-dashboard.com". Null when APP_URL has no host.
+     */
+    public static function publicFolderFor(string $envContents): ?string
+    {
+        if (preg_match('/^APP_URL=(\S+)/m', $envContents, $match) !== 1) {
+            return null;
+        }
+
+        $host = strtolower((string) parse_url(trim($match[1], " \t\"'"), PHP_URL_HOST));
+
+        return $host !== '' ? 'public_html/'.$host : null;
+    }
+
+    /**
+     * Files of public/ that never go into public_html/: the server's own
+     * index.php (it has the usePublicPath edit) and .htaccess, plus build
+     * leftovers. Paths are relative to public/.
+     */
+    public static function shouldIncludePublic(string $relativePath): bool
+    {
+        $path = ltrim(str_replace('\\', '/', $relativePath), '/');
+
+        if ($path === '' || in_array($path, ['index.php', '.htaccess', '.gitignore', 'hot'], true)) {
+            return false;
+        }
+
+        return ! str_starts_with($path, 'storage/') && $path !== 'storage';
+    }
+
+    /**
+     * Copy public/ into $target (the public_html/ folder of the zip).
+     *
+     * @return int number of files copied
+     */
+    public function copyPublic(string $source, string $target): int
+    {
+        $source = rtrim(str_replace('\\', '/', $source), '/');
+        $count = 0;
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST,
+        );
+
+        foreach ($files as $file) {
+            $relative = substr(str_replace('\\', '/', $file->getPathname()), strlen($source) + 1);
+
+            if ($file->isDir() || ! self::shouldIncludePublic($relative)) {
+                continue;
+            }
+
+            if (! is_dir(dirname($target.'/'.$relative))) {
+                mkdir(dirname($target.'/'.$relative), 0777, true);
+            }
+
+            copy($file->getPathname(), $target.'/'.$relative);
+            $count++;
+        }
+
+        return $count;
     }
 
     /** Keys that must be empty (or a placeholder) in a shipped .env template. */
@@ -129,18 +200,19 @@ final class ReleasePackager
     }
 
     /**
-     * Delete every release zip in $folder except $keep (the one just built).
+     * Delete every release zip in $folder except those in $keep (the ones just built).
      * Only *.zip files are touched.
      *
+     * @param  string|list<string>  $keep
      * @return int number of zips deleted
      */
-    public function pruneOldReleases(string $folder, string $keep): int
+    public function pruneOldReleases(string $folder, string|array $keep): int
     {
-        $keep = realpath($keep) ?: $keep;
+        $keep = array_map(fn (string $path) => realpath($path) ?: $path, (array) $keep);
         $deleted = 0;
 
         foreach (glob(rtrim($folder, '/\\').DIRECTORY_SEPARATOR.'*.zip') ?: [] as $zip) {
-            if ((realpath($zip) ?: $zip) !== $keep && @unlink($zip)) {
+            if (! in_array(realpath($zip) ?: $zip, $keep, true) && @unlink($zip)) {
                 $deleted++;
             }
         }
