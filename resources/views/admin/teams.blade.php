@@ -98,6 +98,7 @@
                                             @endforeach
                                         </select>
                                         <button type="submit" class="btn btn-sm btn-outline-secondary" @disabled($team->users->isEmpty())>Reset tours</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" formaction="{{ route('admin.teams.reset-checklist', $team) }}" @disabled($team->users->isEmpty())>Reset checklist</button>
                                     </form>
                                     <a href="{{ route('admin.teams.private-plan', $team) }}" class="btn btn-sm btn-link px-0">{{ $team->isPrivate() ? 'Edit private plan' : 'Private plan…' }}</a>
                                 </td>

@@ -172,6 +172,9 @@ class Tour {
         this.returnFocus = document.activeElement;
         this.frame = null;
 
+        // The setup checklist hides while a tour runs (CSS) and comes back afterwards.
+        root.classList.add('cv-tour-active');
+
         const ui = data.ui;
 
         this.layer = make('div', 'cv-tour');
@@ -402,6 +405,7 @@ class Tour {
 
         this.drawer(false);
         this.layer.remove();
+        root.classList.remove('cv-tour-active');
         active = null;
 
         if (this.returnFocus && this.returnFocus.isConnected && typeof this.returnFocus.focus === 'function') {

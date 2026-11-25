@@ -1391,3 +1391,162 @@ $cv-heat-levels: (0: 0%, 1: 14%, 2: 30%, 3: 50%, 4: 75%, 5: 100%);
     .cv-tour__spot,
     .cv-tour__pop { transition: none; }
 }
+
+
+// -- Setup checklist (app/Livewire/SetupChecklist.php): a floating card or pill at the bottom right ----------
+// Below modals (1055), the tour (3000) and the header and sidebar, above the page.
+.cv-checklist {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1020;
+}
+
+.cv-checklist__card {
+    width: 320px;
+    max-width: calc(100vw - 2rem);
+    max-height: min(32rem, calc(100vh - 6rem));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .3);
+}
+
+.cv-checklist__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .6rem .85rem;
+    background: $cv-header-bg;
+    color: #fff;
+}
+
+.cv-checklist__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.cv-checklist__tools {
+    display: flex;
+    align-items: center;
+    gap: .15rem;
+}
+
+.cv-checklist__tool {
+    width: 1.9rem;
+    height: 1.9rem;
+    border: 0;
+    border-radius: .3rem;
+    background: transparent;
+    color: #fff;
+    opacity: .85;
+
+    &:hover { opacity: 1; background: rgba(255, 255, 255, .12); }
+}
+
+.cv-checklist__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + .25rem);
+    z-index: 2;
+    min-width: 12rem;
+    padding: .25rem 0;
+    border-radius: .4rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .25);
+}
+
+.cv-checklist__body {
+    overflow-y: auto;
+    padding: .85rem;
+}
+
+.cv-checklist__item {
+    display: flex;
+    gap: .6rem;
+    padding: .55rem 0;
+    border-top: 1px solid var(--bs-border-color-translucent);
+
+    &:first-child { border-top: 0; }
+    &.is-extra { opacity: .9; }
+}
+
+.cv-checklist__icon {
+    margin-top: .15rem;
+    font-size: 1.05rem;
+}
+
+.cv-checklist__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .45rem .9rem .45rem .55rem;
+    border: 0;
+    border-radius: 2rem;
+    background: $cv-header-bg;
+    color: #fff;
+    font-size: $cv-font-size-sm;
+    font-weight: 600;
+    box-shadow: 0 .4rem 1.25rem rgba(0, 0, 0, .3);
+}
+
+// The progress as a ring.
+.cv-checklist__ring {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: conic-gradient($cv-primary calc(var(--p) * 1%), rgba(255, 255, 255, .25) 0);
+    mask: radial-gradient(circle, transparent 55%, #000 57%);
+}
+
+.cv-checklist :is(button, a):focus-visible {
+    outline: 3px solid $cv-primary;
+    outline-offset: 2px;
+}
+
+.cv-checklist__header :is(button):focus-visible { outline-color: #fff; }
+
+.cv-checklist__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgba(10, 14, 20, .4);
+}
+
+// A tour hides the checklist for as long as it runs.
+.cv-tour-active .cv-checklist { display: none !important; }
+
+// Room for the page's own bottom buttons (pagination, Save) while the checklist floats there.
+body:has(.cv-checklist) .cv-footer { margin-bottom: 4.5rem; }
+
+@media (min-width: 992px) {
+    body:has(.cv-checklist[data-state="expanded"]) .cv-footer { margin-bottom: 28rem; }
+}
+
+// On a narrow screen only the pill shows, and the card opens as a bottom sheet.
+@media (max-width: 991.98px) {
+    .cv-checklist__card.is-sheet {
+        position: fixed;
+        z-index: 1;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        max-width: none;
+        max-height: 75vh;
+        border-radius: .75rem .75rem 0 0;
+    }
+
+    .cv-checklist:has(.cv-checklist__card.is-sheet:not([style*="display: none"])) { z-index: 1035; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cv-checklist * { transition: none !important; animation: none !important; }
+}

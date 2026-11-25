@@ -63,6 +63,10 @@
     @endif
     <div id="cv-tour-urls" data-reset="{{ route('tours.reset') }}" data-restarted="{{ __('tours.ui.restarted') }}" hidden></div>
 
+    @if (auth()->check() && app(\App\Services\Setup\SetupChecklist::class)->available(auth()->user(), request()->route()?->getName()))
+        <livewire:setup-checklist />
+    @endif
+
     @livewireScripts
 </body>
 </html>

@@ -166,5 +166,6 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
         Route::post('system/resume-paused', [AdminController::class, 'resumePaused'])->name('system.resume-paused');
         Route::post('teams/{team}/approve-trial', [AdminController::class, 'approveTrial'])->name('teams.approve-trial');
         Route::post('teams/{team}/reset-tours', [AdminController::class, 'resetTours'])->name('teams.reset-tours');
+        Route::post('teams/{team}/reset-checklist', [AdminController::class, 'resetChecklist'])->name('teams.reset-checklist');
     });
 });

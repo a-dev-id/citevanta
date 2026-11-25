@@ -6,6 +6,7 @@ import { initCharts } from './charts';
 import { initAnchors } from './anchors';
 import { initCopy } from './copy';
 import { initTour } from './tour';
+import { initChecklist } from './checklist';
 
 window.bootstrap = bootstrap;
 
@@ -15,3 +16,4 @@ initCharts();
 initAnchors(bootstrap);
 initCopy();
 initTour();
+initChecklist();

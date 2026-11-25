@@ -15,6 +15,14 @@ Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_a
 
 ---
 
+## Not released yet (after 1.9.0)
+
+- **Setup checklist:** a floating, minimizable "Get started" card at the bottom right of the customer app (a pill on a narrow screen, opening as a bottom sheet). Its items tick by themselves from real data: verify your email, add your hotel, hotel facts, 3 competitors, 10 active prompts, first scan, first recommendation, and on the Private plan the OpenAI key with budget, Connect Google, the website script and tracking health. Trial teams also get an "Upgrade when you are ready" item that is not counted. Remembered per user and team; "All set" shows once and then it hides; "Setup checklist" in the "?" menu brings it back; hidden during guided tours and on admin pages. Admin > Teams > Reset checklist. See docs/SETUP-CHECKLIST.md.
+- **New migration (1):** `create_setup_checklist_states_table` (a new table; nothing is deleted).
+- **New `.env` key (optional):** `SETUP_CHECKLIST_ENABLED=true` (`false` switches the checklist off).
+
+---
+
 ## What changed in 1.9.0 (since 1.8.0)
 
 - **Re-sync from scratch and Backfill older data also copy the daily totals** (`ga4_totals_daily`) for every month they copy, not only Sync now and the daily sync. A team that has history but no totals gets them for every month from Backfill.

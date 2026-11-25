@@ -18,6 +18,7 @@ use App\Services\Deploy\DeployTasks;
 use App\Services\Plans\PlanCatalog;
 use App\Services\Scanning\ScanMaintenance;
 use App\Services\Scanning\ScanPlanner;
+use App\Services\Setup\SetupChecklist;
 use App\Services\Tours\TourService;
 use App\Services\Trials\TrialCosts;
 use App\Services\Trials\TrialGate;
@@ -204,6 +205,21 @@ class AdminController extends Controller
         $tours->reset($user);
 
         return back()->with('status', "Tours reset for {$user->name}: they will see every tour again.");
+    }
+
+    /**
+     * Start the setup checklist again for one member of a team (expanded, as on a first visit).
+     */
+    public function resetChecklist(Request $request, Team $team, SetupChecklist $checklist): RedirectResponse
+    {
+        $data = $request->validate(['user' => ['required', 'integer']]);
+        $user = $team->users()->whereKey($data['user'])->first();
+
+        abort_if($user === null, 404);
+
+        $checklist->reset($user, $team);
+
+        return back()->with('status', "Setup checklist reset for {$user->name}: it shows again as on a first visit.");
     }
 
     public function clearCaches(DeployTasks $tasks): RedirectResponse

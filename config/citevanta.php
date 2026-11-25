@@ -207,6 +207,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | First-time setup checklist (a floating card at the bottom right of the customer app)
+    |--------------------------------------------------------------------------
+    */
+    'setup_checklist' => [
+        // false switches the checklist off (its entry in the help menu is hidden too).
+        'enabled' => (bool) env('SETUP_CHECKLIST_ENABLED', true),
+        // The hotel facts (names as in the setup wizard) that must have a value for "Fill in the hotel facts" to be done.
+        'required_facts' => ['Price range per night', 'Number of rooms'],
+        'min_competitors' => 3,
+        'min_prompts' => 10,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Guided tours (onboarding) in the customer app
     |--------------------------------------------------------------------------
     */

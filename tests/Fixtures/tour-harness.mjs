@@ -152,11 +152,12 @@ function snapshot() {
     out.spot = first((n) => n.className === 'cv-tour__spot')?.style ?? null;
     out.pop = first((n) => n.className === 'cv-tour__pop')?.style ?? null;
     out.drawerOpen = classes.contains('sidebar-open');
+    out.tourActive = classes.contains('cv-tour-active');
 }
 
 await wait(sc.autostart === false ? 150 : 1300);
 out.initial = (() => { snapshot(); return { layer: out.layer, title: out.title, counter: out.counter, next: out.next }; })();
-out.steps.push({ title: out.title, counter: out.counter, next: out.next, drawerOpen: out.drawerOpen, focus: out.focus });
+out.steps.push({ title: out.title, counter: out.counter, next: out.next, drawerOpen: out.drawerOpen, focus: out.focus, tourActive: out.tourActive });
 
 for (const action of sc.actions || []) {
     if (action === 'next') { button('btn-primary')?.click(); }
@@ -177,7 +178,7 @@ for (const action of sc.actions || []) {
 
     await wait(60);
     snapshot();
-    out.steps.push({ title: out.title, counter: out.counter, next: out.next, drawerOpen: out.drawerOpen, focus: out.focus });
+    out.steps.push({ title: out.title, counter: out.counter, next: out.next, drawerOpen: out.drawerOpen, focus: out.focus, tourActive: out.tourActive });
 }
 
 await wait(80);

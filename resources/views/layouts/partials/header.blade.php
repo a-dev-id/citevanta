@@ -63,6 +63,13 @@
                             <i class="fa-solid fa-route" aria-hidden="true"></i>{{ ($tour ?? null) ? __('tours.ui.take_tour') : __('tours.ui.no_tour') }}
                         </button>
                     </li>
+                    @if (app(\App\Services\Setup\SetupChecklist::class)->available(auth()->user(), request()->route()?->getName()))
+                        <li>
+                            <button type="button" class="dropdown-item" data-cv-checklist-restore>
+                                <i class="fa-solid fa-list-check" aria-hidden="true"></i>{{ __('checklist.ui.help_entry') }}
+                            </button>
+                        </li>
+                    @endif
                     <li>
                         <button type="button" class="dropdown-item" data-cv-tour-restart>
                             <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>{{ __('tours.ui.restart_all') }}
