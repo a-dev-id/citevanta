@@ -134,6 +134,18 @@ The **self-check** after each sync compares the stored all-traffic totals and th
 - **Compare:** no comparison, the previous period (same length, directly before; the default) or the same period last year (optionally shifted 52 weeks so the weekdays match, `&dow=1`). A comparison that would start before the first synced day is disabled and the page says why ("data starts ..."). Days that were never synced are blank, never zero. The comparison line is dashed in the charts, the cards show the % change and the tables get previous and change columns.
 - **Tables:** 10, 50 or 100 rows per page (10 by default, remembered per user), sortable columns (the sort covers all rows) and page controls. The page, sort and size are in the URL (`?size=50&page[ai-pages]=2&sort[ai-pages]=sessions:desc`). The CSV button always exports every row of the selected range in the chosen order, with the comparison columns when a comparison is on; the range is in the file name.
 
+## Searches by date: the guest's country
+
+The booking-dates sync (the table `ga4_booking_dates_daily`, one row per date, event, check-in, stay and **country**) also reads GA4's **country** dimension. A request has 5 dimensions at most (date, event, check-in, the stay field, country), well within GA4's limit of 9, and the sum over the countries of a day is the same total as before.
+
+- The country is stored **as GA4 returns it** (a name only, no city or region, nothing about the person). An empty country and GA4's "(not set)" are shown as **Unknown**.
+- The country is part of each row's unique key (`row_key`), so the upsert and the replace-by-window logic keep working. Rows synced before this change have an empty country and keep their old key; they are replaced by date the next time their window is read (a re-sync, **Sync now** or the daily sync), so they are never counted twice once their window is done.
+- **Re-sync from scratch** fills the country for every day it copies, and so do **Sync now** and the daily sync (the last 3 days). The data only exists since 24 Nov 2026, so the re-sync is small.
+- In **Reports > AI traffic and bookings > Searches by date**:
+  - The **calendar tooltip** shows "Top countries" under the three counts: up to 3 lines like "Australia 2", and "+2 more" when there are more. The lines count **searches only**, so together with the "+N more" countries they add up to the "searched" number above them (started bookings and bookings are not counted per country).
+  - A **Country** dropdown ("All countries" by default) filters the calendar, the stay-length chart and table, and the CSV. It follows the date picker and the comparison like the rest of the report.
+  - The **CSV** button of the dates table downloads one row per check-in date, stay length and country (with the previous-period columns when a comparison is on). The per-date file is still available as `demand-checkin`.
+
 ## Quotas
 
 The sync makes one API call per job and at most 30 calls a minute (`GOOGLE_REQUESTS_PER_MINUTE`). GA4 standard properties allow 40,000 core tokens per hour and 200,000 per day per property; a typical report costs about 10 tokens. Search Console allows 1,200 queries per minute per site. On a quota error the job waits 15 minutes and retries. The access token is requested once and kept for about 50 minutes.

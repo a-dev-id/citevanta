@@ -13,6 +13,7 @@ use App\Services\Reports\ReportPeriod;
 use App\Services\Reports\SearchReport;
 use App\Services\Reports\TableOptions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -55,7 +56,8 @@ class ReportController extends Controller
 
         if ($data['empty'] === null) {
             $traffic = new AiTrafficReport($hotel, $period);
-            $demand = new BookingDemandReport($hotel, $period);
+            $country = $this->country($request);
+            $demand = new BookingDemandReport($hotel, $period, $country);
             $data += [
                 'summary' => $traffic->summary(), 'scriptSeen' => $traffic->scriptSeen(), 'charts' => $traffic->charts(), 'completeThrough' => $traffic->isIncomplete() ? $traffic->completeThrough() : null, 'dataWarning' => GoogleSelfCheck::warningFor($hotel->googleLink, (bool) $request->user()?->is_admin), 'tables' => $traffic->tables($options),
                 'findings' => $this->findings->forAiTraffic($hotel, $traffic),
@@ -69,6 +71,8 @@ class ReportController extends Controller
             $data['demandDates'] = $data['bookingSetup'] === null ? $demand->byCheckin() : [];
             $data['demandDateCount'] = count($data['demandDates']);
             $data['countryBars'] = array_slice($traffic->byCountry(), 0, 5);
+            $data['demandCountry'] = $country ?? '';
+            $data['demandCountries'] = $data['bookingSetup'] === null ? (new BookingDemandReport($hotel, $period))->countryOptions() : [];
         }
 
         return view('hotels.reports', $data);
@@ -84,7 +88,7 @@ class ReportController extends Controller
         $all = TableOptions::all((array) $request->query('sort', []));
         $tables = match (strstr($table, '-', true)) {
             'ai' => (new AiTrafficReport($hotel, $period))->tables($all),
-            'demand' => (new BookingDemandReport($hotel, $period))->tables($all),
+            'demand' => (new BookingDemandReport($hotel, $period, $this->country($request)))->tables($all),
             'search' => (new SearchReport($hotel, $period))->tables($all),
             default => [],
         };
@@ -92,7 +96,8 @@ class ReportController extends Controller
 
         $report = $tables[$table];
         $name = $hotel->slug.'-'.$table.'-'.$period->from->format('Ymd').'-'.$period->to->format('Ymd')
-            .($period->hasComparison() ? '-vs-'.$period->compareFrom->format('Ymd').'-'.$period->compareTo->format('Ymd') : '').'.csv';
+            .($period->hasComparison() ? '-vs-'.$period->compareFrom->format('Ymd').'-'.$period->compareTo->format('Ymd') : '')
+            .(str_starts_with($table, 'demand') && ($country = $this->country($request)) !== null ? '-'.Str::slug($country) : '').'.csv';
 
         return response()->streamDownload(function () use ($report): void {
             $out = fopen('php://output', 'w');
@@ -134,6 +139,14 @@ class ReportController extends Controller
         }
 
         return TableOptions::validSize($user?->report_page_size) ?? TableOptions::DEFAULT_SIZE;
+    }
+
+    /** The country chosen for "Searches by date": a country name, "unknown", or null for all countries. */
+    private function country(Request $request): ?string
+    {
+        $country = $request->query('country');
+
+        return is_string($country) && trim($country) !== '' && mb_strlen($country) <= 100 ? trim($country) : null;
     }
 
     private function authorizePrivate(Hotel $hotel): void

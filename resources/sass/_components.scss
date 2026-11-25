@@ -1557,3 +1557,16 @@ body:has(.cv-checklist) .cv-footer { margin-bottom: 4.5rem; }
 @media (prefers-reduced-motion: reduce) {
     .cv-checklist * { transition: none !important; animation: none !important; }
 }
+
+
+// -- Demand calendar tooltip: the top countries under the three counts ----------------------------------------
+.cv-cal__tip-countries {
+    margin: .4rem 0 .5rem;
+    font-size: $cv-font-size-sm;
+    line-height: 1.35;
+}
+
+.cv-cal__tip-sub {
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}

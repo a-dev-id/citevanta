@@ -59,6 +59,11 @@
                             <span><strong x-text="data[tip.key].s"></strong> started a booking</span>
                             <span><strong x-text="data[tip.key].b"></strong> booked</span>
                         </div>
+                        <div class="cv-cal__tip-countries" id="demand-tip-countries" x-show="data[tip.key].c && data[tip.key].c.length">
+                            <div class="cv-cal__tip-sub">Top countries</div>
+                            <template x-for="c in data[tip.key].c" :key="c[0]"><div x-text="c[0] + ' ' + c[1]"></div></template>
+                            <div class="text-muted" x-show="data[tip.key].m > 0" x-text="'+' + data[tip.key].m + ' more'"></div>
+                        </div>
                         <table class="cv-cal__tip-table">
                             <thead><tr><th scope="col">Stay</th><th scope="col">Looked</th><th scope="col">Started</th><th scope="col">Booked</th></tr></thead>
                             <tbody>

@@ -20,15 +20,16 @@ final readonly class ReportTable
         public array $rows,
         public ?string $note = null,
         public ?TablePage $page = null,
+        public ?string $exportKey = null,
     ) {}
 
     /**
      * @param  array<string, string>  $columns  key => "Label|type" or "Label|type|-"
      * @param  list<array<string, scalar|null>>  $rows
      */
-    public static function make(string $key, string $title, array $columns, array $rows, ?string $note = null, ?TablePage $page = null): self
+    public static function make(string $key, string $title, array $columns, array $rows, ?string $note = null, ?TablePage $page = null, ?string $exportKey = null): self
     {
-        return new self($key, $title, self::definitions($columns), $rows, $note, $page);
+        return new self($key, $title, self::definitions($columns), $rows, $note, $page, $exportKey);
     }
 
     /**

@@ -124,6 +124,26 @@
                     </x-empty-state>
                 </x-card>
             @else
+                {{-- Country: filters the calendar, the stay tables and the CSV of this section. --}}
+                <form method="GET" action="{{ route('hotels.reports', $hotel) }}" class="d-flex flex-wrap align-items-center gap-2 mb-3" id="country-form">
+                    <input type="hidden" name="report" value="ai">
+                    @foreach ($period->query() as $name => $value)
+                        <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                    @endforeach
+                    @if (request()->query('size'))<input type="hidden" name="size" value="{{ request()->query('size') }}">@endif
+                    <label for="country" class="small text-muted mb-0">Country</label>
+                    <select name="country" id="country" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                        <option value="">All countries</option>
+                        @foreach ($demandCountries as $option)
+                            <option value="{{ $option['value'] }}" @selected($demandCountry === $option['value'])>{{ $option['label'] }}</option>
+                        @endforeach
+                        @if ($demandCountry !== '' && ! collect($demandCountries)->contains('value', $demandCountry))
+                            <option value="{{ $demandCountry }}" selected>{{ $demandCountry === 'unknown' ? 'Unknown' : $demandCountry }}</option>
+                        @endif
+                    </select>
+                    <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Apply</button></noscript>
+                </form>
+
                 <div x-data="{ tab: 'popular' }" id="demand-section">
                     <div class="cv-tabs mb-3" role="tablist" aria-label="Demand view">
                         <button type="button" role="tab" id="tab-popular" :aria-selected="tab === 'popular' ? 'true' : 'false'" :class="{ 'is-active': tab === 'popular' }" @click="tab = 'popular'">Popular dates</button>

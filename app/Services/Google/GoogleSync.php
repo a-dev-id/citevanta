@@ -433,7 +433,8 @@ final class GoogleSync
         }
 
         $stay = ! empty($mapping['checkout']) ? $mapping['checkout'] : ($mapping['nights'] ?? null);
-        $dimensions = array_values(array_filter(['date', 'eventName', 'customEvent:'.$mapping['checkin'], $stay ? 'customEvent:'.$stay : null]));
+        // date, event, check-in, the stay field if there is one, and the guest's country: at most 5 of GA4's 9 dimensions per request.
+        $dimensions = array_values(array_filter(['date', 'eventName', 'customEvent:'.$mapping['checkin'], $stay ? 'customEvent:'.$stay : null, 'country']));
         $limit = (int) config('citevanta.google.ga4_page_size', 10000);
         $data = $this->api->runReport((string) $link->ga4_property, [
             'dateRanges' => [['startDate' => $from, 'endDate' => $to]],
@@ -456,19 +457,22 @@ final class GoogleSync
                 continue;
             }
 
-            $checkout = ! empty($mapping['checkout']) ? self::validDate($values[3] ?? '') : null;
+            $stayValue = $stay ? ($values[3] ?? '') : '';
+            $checkout = ! empty($mapping['checkout']) ? self::validDate($stayValue) : null;
             $nights = match (true) {
                 $checkout !== null => (int) Carbon::parse($checkin)->diffInDays(Carbon::parse($checkout)),
-                empty($mapping['checkout']) && isset($values[3]) && ctype_digit($values[3]) => (int) $values[3],
+                empty($mapping['checkout']) && $stayValue !== '' && ctype_digit($stayValue) => (int) $stayValue,
                 default => null,
             };
+            // The country name as GA4 returns it (a name only: no city, no region, nothing about the person).
+            $country = mb_substr(trim($values[count($dimensions) - 1] ?? ''), 0, 100);
             $nights = $nights !== null && $nights >= 1 && $nights <= 90 ? $nights : null;
             $date = self::date($values[0]);
-            $key = sha1(implode('|', [$date, $values[1], $checkin, $checkout, $nights]));
+            $key = sha1(implode('|', [$date, $values[1], $checkin, $checkout, $nights, $country]));
 
             $rows[$key] = [
                 'hotel_id' => $link->hotel_id, 'date' => $date, 'row_key' => $key, 'event_name' => mb_substr($values[1], 0, 60),
-                'checkin' => $checkin, 'checkout' => $checkout, 'nights' => $nights,
+                'checkin' => $checkin, 'checkout' => $checkout, 'nights' => $nights, 'country' => $country,
                 'events' => ($rows[$key]['events'] ?? 0) + (int) ($row['metricValues'][0]['value'] ?? 0),
             ];
         }

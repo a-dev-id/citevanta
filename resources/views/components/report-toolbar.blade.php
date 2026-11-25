@@ -12,7 +12,7 @@
     $earliest = $period->earliest ?? $period->from->copy()->subYears(2);
 
     // What stays when the range changes: the sort and the page size, never the page.
-    $keep = array_filter(['sort' => request()->query('sort'), 'size' => request()->query('size')]);
+    $keep = array_filter(['sort' => request()->query('sort'), 'size' => request()->query('size'), 'country' => request()->query('country')]);
     $route = fn (array $query) => route('hotels.reports', [$hotel] + $query + ['report' => $tab] + $keep);
     $matched = $period->matchedPreset();
 

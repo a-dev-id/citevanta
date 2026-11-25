@@ -96,7 +96,7 @@ final class FakeGoogleApi implements GoogleApi
                             $values = [
                                 'date' => $day === 'all' ? null : str_replace('-', '', $day),
                                 'sessionSource' => $source, 'sessionMedium' => $medium,
-                                'country' => self::COUNTRIES[($d + $s) % count(self::COUNTRIES)],
+                                'country' => self::COUNTRIES[($d + $s + $variant) % count(self::COUNTRIES)],
                                 'landingPage' => self::PAGES[($d + $s) % count(self::PAGES)],
                                 'deviceCategory' => self::DEVICES[$s % count(self::DEVICES)],
                                 'eventName' => $event, 'hostName' => $host,

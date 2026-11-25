@@ -1,17 +1,28 @@
-# Release 1.10.0 (25 Nov 2026)
+# Release 1.11.0 (25 Nov 2026)
 
 Two zips, in `releases/`. **Each one is uploaded into its own target folder and extracted there**, so nothing can land in the wrong place:
 
 | Zip | Open this folder in File Manager | What is inside (at the zip root, no wrapper folder) |
 | --- | --- | --- |
-| `citevanta-app-1.10.0-{timestamp}.zip` | `/home/balj5948/citevanta` | the whole app, `vendor/` without dev packages, `public/build/`, `release.json` and this file |
-| `citevanta-public-1.10.0-{timestamp}.zip` | `/home/balj5948/public_html/citevanta.a-dashboard.com` | `build/`, `images/` and the favicon files |
+| `citevanta-app-1.11.0-{timestamp}.zip` | `/home/balj5948/citevanta` | the whole app, `vendor/` without dev packages, `public/build/`, `release.json` and this file |
+| `citevanta-public-1.11.0-{timestamp}.zip` | `/home/balj5948/public_html/citevanta.a-dashboard.com` | `build/`, `images/` and the favicon files |
 
 Not in the zips, so the live ones stay as they are: `.env`, everything in `storage/` (so a Google key file you upload there is never overwritten), and in the document root the `index.php` (your `usePublicPath` edit) and `.htaccess` (unchanged since 18 Nov).
 
 `robots.txt`, `llms.txt`, `sitemap.xml` and `site.webmanifest` are **not files**: the app generates them. A static `robots.txt` or `llms.txt` in `public_html` would hide the app's version: delete one if it exists.
 
 Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_at`) into the app zip, and the build prints the same **release id**. That id is how you prove the upload worked (step 6).
+
+---
+
+## What changed in 1.11.0 (since 1.10.0)
+
+This zip also contains everything from 1.10.0 and 1.9.0 (the sections below). If 1.10.0 is already live, only the guest's country in Searches by date (and its migration) is new.
+
+- **Searches by date with the guest's country:** the booking-dates sync also reads GA4's country dimension (5 dimensions at most, the total per day is unchanged). The country is stored as GA4 returns it and shown as "Unknown" when empty. The calendar tooltip shows "Top countries" (up to 3, then "+2 more"; the lines count searches only, so they add up to the searched number), a **Country** dropdown filters the calendar, the stay-length chart and table and the CSV, and the CSV has one row per date, stay length and country (with the comparison columns). Re-sync from scratch, Sync now and the daily sync all fill the country. See docs/GOOGLE-SETUP.md.
+- **New migration:** `2026_11_25_044814_add_country_to_ga4_booking_dates_daily` (adds one text column with the default '' to the booking dates table; no row is changed or deleted; running it twice is harmless).
+- **No new `.env` keys.**
+- **After the upgrade:** click **Re-sync from scratch** for Nandini once (step 9 of the upload steps) so the booking dates get their country; older rows show as "Unknown" until their days are read again.
 
 ---
 
@@ -87,12 +98,13 @@ This zip also contains everything from 1.9.0. If you did not upload 1.9.0, its c
 
 ## New migrations (run by "Run deploy tasks")
 
-From 1.8.0, "Run deploy tasks" runs these **4** migrations. All four create new tables; nothing is deleted. If 1.9.0 is already live, only number 4 runs.
+From 1.10.0, "Run deploy tasks" runs only the new migration **5**. From 1.8.0 it runs these **5**; all create new tables or one empty column, and nothing is deleted. If 1.9.0 is already live, numbers 4 and 5 run.
 
 1. `2026_11_25_010955_create_ga4_totals_daily_table`: daily totals of all traffic (the true "all sessions").
 2. `2026_11_25_012339_create_hotel_tracking_tables`: the website script (a key and settings per hotel, and the events it sends; no IP addresses).
 3. `2026_11_25_013953_create_user_tours_table`: where each user is with each guided tour.
 4. `2026_11_25_022611_create_setup_checklist_states_table`: whether each user left the setup checklist expanded, minimized or hidden.
+5. `2026_11_25_044814_add_country_to_ga4_booking_dates_daily`: the guest's country on the synced booking dates (one text column, default empty).
 
 If you skipped older versions too, "Run deploy tasks" also runs the earlier ones: `2026_11_24_091221_add_booking_dates_for_reports`, `2026_11_24_132838_add_sync_batch_to_ga4_tables`, `2026_11_24_135108_add_data_check_to_hotel_google_links` and `2026_11_24_140130_add_report_page_size_to_users` (a table and empty columns).
 
@@ -158,33 +170,33 @@ Never put the key file in `public_html`, an email, chat or git.
 ## Upload steps (cPanel File Manager)
 
 1. **Back up.**
-   - In File Manager, copy `/home/balj5948/citevanta/.env` to `.env.backup-2026-11-25-1.10.0` (same folder).
+   - In File Manager, copy `/home/balj5948/citevanta/.env` to `.env.backup-2026-11-25-1.11.0` (same folder).
    - Export the database: cPanel > phpMyAdmin > your database > Export, or cPanel > Backup.
 2. **App zip.**
    1. In File Manager, open the folder `/home/balj5948/citevanta` (you should see `app`, `config`, `vendor`, `.env` inside).
-   2. Click **Upload** and choose `citevanta-app-1.10.0-{timestamp}.zip`.
+   2. Click **Upload** and choose `citevanta-app-1.11.0-{timestamp}.zip`.
    3. Back in the folder, select the zip, click **Extract**, and make sure **"Overwrite existing files" is on**. Extract to `/home/balj5948/citevanta` (the same folder, not a sub-folder).
 3. **Public zip.**
    1. Open the folder `/home/balj5948/public_html/citevanta.a-dashboard.com` (you should see `index.php` and `.htaccess`).
-   2. Click **Upload** and choose `citevanta-public-1.10.0-{timestamp}.zip`.
+   2. Click **Upload** and choose `citevanta-public-1.11.0-{timestamp}.zip`.
    3. Select the zip, click **Extract**, **"Overwrite existing files" on**, to that same folder.
 4. **`.env`:** remove the old `GOOGLE_*` lines if present, and add the optional lines you want (see above). If you are not turning Google on yet, change nothing else.
 5. **Run Deploy tasks, then Clear caches:** log in, open `https://citevanta.a-dashboard.com/admin/system`, click **Run deploy tasks** (it runs the new migrations), then **Clear caches**.
 6. **Verify.**
    - Open `/home/balj5948/citevanta/release.json`. The `"id"` must be **the release id the build printed**.
-   - The admin footer and Admin > System show `v1.10.0 · 25 Nov 2026`, the same release id and the build time.
+   - The admin footer and Admin > System show `v1.11.0 · 25 Nov 2026`, the same release id and the build time.
    - Admin > System says "release.json and the running code agree". A yellow "The upload looks half done" warning means release.json and the running code are different versions: see Troubleshooting.
 7. **Quick checks:** `/` (public home page, signed out), `/pricing`, Admin > Integrations > Google (opens, shows the email or "Not set (fake data)"), and, as a Private team, the **Reports** menu item. Admin > System > cron shows a recent run.
 8. **Clean up:** delete both zips from the server folders.
 9. **Fill the data for Nandini (hotels already linked), once after the deploy:**
    1. Admin > Integrations > Google: pick the team and hotel and click **Run diagnostics** first, and note the numbers.
-   2. Click **Re-sync from scratch** (confirm). It is not enough to click only **Sync now**: Re-sync copies the whole history, with the new daily totals for every month. (**Backfill older data** is for teams that were synced with fewer months; it also copies the daily totals for every month when they are missing.)
+   2. Click **Re-sync from scratch** (confirm). It is not enough to click only **Sync now**: Re-sync copies the whole history, with the new daily totals for every month and the guest's country on the booking dates. (**Backfill older data** is for teams that were synced with fewer months; it also copies the daily totals for every month when they are missing.)
    3. **Wait for it to finish.** The reports keep showing the old data while it fills in from the oldest date to the newest ("Data complete through ..." shows the progress). It is finished when the diagnostics show no waiting Google jobs.
    4. Click **Run diagnostics** again, and send me the output. Section 6 shows the stored rows by sync batch and three live GA4 totals.
    5. Optional afterwards: **Sync now (last 7 days)** refreshes only the latest days.
    Search Console is not touched.
 
-**If something goes wrong:** restore `.env.backup-2026-11-25-1.10.0` and the database export, and tell me what the page shows.
+**If something goes wrong:** restore `.env.backup-2026-11-25-1.11.0` and the database export, and tell me what the page shows.
 
 ---
 
