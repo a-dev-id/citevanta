@@ -150,7 +150,8 @@ final class GoogleSync
     /**
      * Read only the older days: from the oldest wanted day (ga4_first_sync_months back) up to the day before the
      * oldest stored day, with the same ordered, windowed method; each window replaces its own dates, so nothing
-     * newer is touched. For teams that were synced with fewer months.
+     * newer is touched. For teams that were synced with fewer months. The daily totals are copied for every month
+     * when the team has history but no totals yet.
      *
      * @return int job chains queued
      */
@@ -171,11 +172,14 @@ final class GoogleSync
         foreach ($tables as $type => $table) {
             $oldest = DB::table($table)->where('hotel_id', $link->hotel_id)->min('date');
 
-            if ($oldest === null) {
+            if ($oldest !== null) {
+                $until = Carbon::parse($oldest)->subDay();
+            } elseif ($type === self::GA4_TOTALS && DB::table('ga4_traffic_daily')->where('hotel_id', $link->hotel_id)->exists()) {
+                // History without daily totals (synced before they existed): copy the totals for every month, up to yesterday.
+                $until = Carbon::yesterday();
+            } else {
                 continue; // nothing stored yet: the normal first sync reads everything
             }
-
-            $until = Carbon::parse($oldest)->subDay();
 
             if ($until->lt($wanted)) {
                 continue; // already reaches back far enough

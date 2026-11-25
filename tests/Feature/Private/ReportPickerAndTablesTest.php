@@ -459,7 +459,7 @@ class ReportPickerAndTablesTest extends TestCase
 
         $result = app(GoogleSync::class)->backfillTeam($hotel->team_id);
 
-        $this->assertSame(['hotels' => 1, 'jobs' => 2], $result);
+        $this->assertSame(['hotels' => 1, 'jobs' => 3], $result, 'traffic, events and the daily totals (history without totals gets them for every month)');
         Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC && $job->from === $wanted
             && $job->to === GoogleSync::windowEnd($wanted, '2025-10-19') && $job->until === '2025-10-19', 'from 25 months back up to the day before the oldest stored day');
         Bus::assertNotDispatched(GoogleSyncJob::class, fn ($job) => $job->to > '2025-10-19' && $job->from >= '2025-10-20');
@@ -474,7 +474,13 @@ class ReportPickerAndTablesTest extends TestCase
         $this->assertSame(0, $sync->backfill($link), 'nothing stored: the normal first sync does that');
 
         DB::table('ga4_traffic_daily')->insert(['hotel_id' => $hotel->id, 'date' => now()->subMonths(26)->toDateString(), 'row_key' => sha1('old'), 'source' => 'google']);
-        $this->assertSame(0, $sync->backfill($link), 'already 26 months deep');
+        $this->assertSame(1, $sync->backfill($link), 'the traffic is already 26 months deep, but it has no daily totals yet: only they are copied');
+        Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TOTALS && $job->until === now()->subDay()->toDateString());
+        Bus::assertNotDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC);
+
+        DB::table('ga4_totals_daily')->insert(['hotel_id' => $hotel->id, 'date' => now()->subMonths(26)->toDateString()]);
+        Bus::fake();
+        $this->assertSame(0, $sync->backfill($link), 'everything reaches back far enough');
         Bus::assertNothingDispatched();
     }
 

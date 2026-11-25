@@ -284,6 +284,89 @@ class GoogleTotalsAndSyncNowTest extends TestCase
         $this->assertStringContainsString('the detailed rows add up to MORE than GA4 reports: GA4 is not additive here', $output);
     }
 
+    // --- Re-sync and Backfill fill the daily totals for every month they copy ---------------------
+
+    /** Live GA4 for a full run: one daily total per day of the asked window, nothing for the detailed rows and events. */
+    private function dailyTotalsApi(): void
+    {
+        $this->mock(GoogleApi::class, fn (MockInterface $mock) => $mock->shouldReceive('runReport')->andReturnUsing(function (string $property, array $body): array {
+            if (array_column($body['dimensions'] ?? [], 'name') !== ['date'] || count($body['metrics']) !== 5) {
+                return ['rows' => [], 'rowCount' => 0];
+            }
+
+            $rows = [];
+            for ($day = Carbon::parse($body['dateRanges'][0]['startDate']); $day->lte(Carbon::parse($body['dateRanges'][0]['endDate'])); $day->addDay()) {
+                $rows[] = ['dimensionValues' => [['value' => $day->format('Ymd')]], 'metricValues' => array_map(fn ($v) => ['value' => (string) $v], [100, 60, 3, 1, 2500])];
+            }
+
+            return ['rows' => $rows, 'rowCount' => count($rows)];
+        }));
+    }
+
+    /**
+     * Run the queued sync jobs one by one, as the queue worker does (each window queues the next; the test queue
+     * would otherwise run 25 windows inside each other).
+     */
+    private function runQueuedSyncJobs(): void
+    {
+        $ran = 0;
+
+        while (($jobs = Bus::dispatched(GoogleSyncJob::class)->values())->count() > $ran) {
+            $jobs[$ran]->handle(app(GoogleSync::class));
+            $ran++;
+        }
+    }
+
+    public function test_re_sync_from_scratch_copies_the_daily_totals_for_every_month_of_the_history(): void
+    {
+        [$team, $hotel] = $this->linkedHotel();
+        $this->dailyTotalsApi();
+        $first = now()->subDay()->subMonthsNoOverflow(25);
+        Bus::fake();
+
+        $result = app(GoogleSync::class)->resyncTeam($team->id);
+        $this->runQueuedSyncJobs();
+
+        $this->assertSame(['hotels' => 1, 'jobs' => 3], $result, 'traffic, events and daily totals');
+        $days = (int) $first->diffInDays(now()->subDay()) + 1;
+        $this->assertSame($days, DB::table('ga4_totals_daily')->where('hotel_id', $hotel->id)->count(), 'one daily total for every day, none missing');
+        $this->assertSame([$first->toDateString(), now()->subDay()->toDateString()], [DB::table('ga4_totals_daily')->min('date'), DB::table('ga4_totals_daily')->max('date')]);
+        $months = DB::table('ga4_totals_daily')->get()->map(fn ($row) => substr($row->date, 0, 7))->unique();
+        $this->assertGreaterThanOrEqual(25, $months->count(), 'every month of the 25 is there');
+        $this->assertSame(100, (int) DB::table('ga4_totals_daily')->where('date', now()->subMonths(18)->toDateString())->value('sessions'));
+    }
+
+    public function test_backfill_copies_the_daily_totals_for_every_month_when_the_history_has_none(): void
+    {
+        [$team, $hotel] = $this->linkedHotel();
+        // A team synced before daily totals existed: detailed rows from June, no totals.
+        DB::table('ga4_traffic_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-06-01', 'row_key' => sha1('x'), 'source' => 'google', 'sessions' => 5]);
+        $this->dailyTotalsApi();
+        $first = now()->subDay()->subMonthsNoOverflow(25);
+        Bus::fake();
+
+        $result = app(GoogleSync::class)->backfillTeam($team->id);
+        $this->runQueuedSyncJobs();
+
+        $this->assertSame(['hotels' => 1, 'jobs' => 2], $result, 'the older traffic and the totals for every month');
+        $days = (int) $first->diffInDays(now()->subDay()) + 1;
+        $this->assertSame($days, DB::table('ga4_totals_daily')->where('hotel_id', $hotel->id)->count(), 'a total for every day, also for the months the traffic already had');
+        $this->assertSame([$first->toDateString(), now()->subDay()->toDateString()], [DB::table('ga4_totals_daily')->min('date'), DB::table('ga4_totals_daily')->max('date')]);
+        $this->assertSame(5, (int) DB::table('ga4_traffic_daily')->where('date', '2026-06-01')->value('sessions'), 'the stored traffic is untouched');
+    }
+
+    public function test_backfill_only_reads_the_older_totals_when_some_totals_exist_already(): void
+    {
+        [$team, $hotel] = $this->linkedHotel();
+        DB::table('ga4_traffic_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-06-01', 'row_key' => sha1('x'), 'source' => 'google', 'sessions' => 5]);
+        DB::table('ga4_totals_daily')->insert(['hotel_id' => $hotel->id, 'date' => '2026-11-17', 'sessions' => 777]); // from Sync now
+        Bus::fake();
+
+        app(GoogleSync::class)->backfill($team->fresh()->hotels()->first()->googleLink);
+
+        Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TOTALS && $job->until === '2026-11-16', 'up to the day before the oldest total');
+    }
+
     // --- Sync now -------------------------------------------------------------------------------
 
     public function test_sync_now_reads_only_the_last_7_days_of_every_ga4_type_and_never_the_history(): void
