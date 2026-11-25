@@ -26,7 +26,6 @@ return [
     ],
 
     'items' => [
-        'email' => ['title' => 'Verify your email', 'help' => 'Your email address is confirmed.', 'action' => 'Verify'],
         'hotel' => ['title' => 'Add your hotel', 'help' => 'Name, city and website of your hotel.', 'action' => 'Add hotel'],
         'facts' => ['title' => 'Fill in the hotel facts', 'help' => 'AI answers are only as good as your facts: add at least the price range and the number of rooms.', 'action' => 'Add facts'],
         'competitors' => ['title' => 'Add at least 3 competitors', 'help' => 'The hotels travellers compare you with.', 'action' => 'Add competitors'],

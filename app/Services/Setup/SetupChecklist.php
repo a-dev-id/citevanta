@@ -12,17 +12,16 @@ use App\Models\SetupChecklistState;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Hotels\CurrentHotel;
-use Illuminate\Support\Facades\Route;
 
 /**
  * The first-time setup checklist (a floating card at the bottom right of the customer app).
  *
+ * It is only ever shown to a user whose email is verified, so there is no "verify your email" item.
  * Every item ticks by itself from real data on each page load and after Livewire actions; nobody ticks anything by
  * hand. Items for every team come first, then the Private plan items, and a trial team also gets an "Upgrade when
  * you are ready" item that is not counted in the progress.
  *
  * Done rules (items about a hotel use the user's current hotel):
- *  email           the user's email is verified
  *  hotel           the team has a hotel with a name, a city and a website
  *  facts           the required facts (config setup_checklist.required_facts) have a value
  *  competitors     at least 3 competitors
@@ -38,7 +37,7 @@ use Illuminate\Support\Facades\Route;
 final class SetupChecklist
 {
     /** Items for every team, in order. */
-    public const BASE = ['email', 'hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'];
+    public const BASE = ['hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'];
 
     /** Extra items on the Private plan, in order. */
     public const PRIVATE = ['openai_key', 'google', 'script', 'health'];
@@ -108,7 +107,6 @@ final class SetupChecklist
         $link = $hotel?->googleLink;
 
         return match ($key) {
-            'email' => $user->hasVerifiedEmail(),
             'hotel' => $team->hotels()->where('name', '!=', '')->whereNotNull('name')->where('city', '!=', '')->whereNotNull('city')->where('website', '!=', '')->whereNotNull('website')->exists(),
             'facts' => $hotel !== null && $this->hasRequiredFacts($hotel),
             'competitors' => $hotel !== null && Competitor::query()->where('hotel_id', $hotel->id)->count() >= (int) config('citevanta.setup_checklist.min_competitors', 3),
@@ -209,7 +207,6 @@ final class SetupChecklist
         $hotelRoute = fn (string $name) => $hotel !== null ? route($name, $hotel) : route('hotels.create');
 
         return match ($key) {
-            'email' => Route::has('verification.notice') ? route('verification.notice') : route('settings.profile'),
             'hotel' => $hotel === null ? route('hotels.create') : route('hotels.edit', $hotel),
             'facts' => $hotel === null ? route('hotels.create') : route('hotels.edit', $hotel),
             'competitors' => $hotelRoute('hotels.competitors'),

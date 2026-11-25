@@ -79,13 +79,13 @@ class SetupChecklistTest extends TestCase
 
     // --- the items and the progress -------------------------------------------------------------
 
-    public function test_every_team_gets_seven_items_and_the_private_plan_four_more(): void
+    public function test_every_team_gets_six_items_and_the_private_plan_four_more(): void
     {
         [$starter, $starterTeam] = $this->member(Plan::Starter);
         [$private, $privateTeam] = $this->member(Plan::Private);
 
-        $this->assertSame(['email', 'hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'], array_column($this->checklist()->items($starter, $starterTeam), 'key'));
-        $this->assertSame(['email', 'hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation', 'openai_key', 'google', 'script', 'health'], array_column($this->checklist()->items($private, $privateTeam), 'key'));
+        $this->assertSame(['hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'], array_column($this->checklist()->items($starter, $starterTeam), 'key'));
+        $this->assertSame(['hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation', 'openai_key', 'google', 'script', 'health'], array_column($this->checklist()->items($private, $privateTeam), 'key'));
     }
 
     public function test_a_trial_team_gets_an_upgrade_item_at_the_end_that_is_not_counted(): void
@@ -95,12 +95,12 @@ class SetupChecklistTest extends TestCase
 
         $last = end($items);
         $this->assertSame(['upgrade', false, route('settings.billing')], [$last['key'], $last['counted'], $last['url']]);
-        $this->assertCount(8, $items);
-        $this->assertSame(7, $this->checklist()->progress($items)['total'], 'the upgrade item is not part of the progress');
+        $this->assertCount(7, $items);
+        $this->assertSame(6, $this->checklist()->progress($items)['total'], 'the upgrade item is not part of the progress');
 
         $this->completeBase($owner, $team, $hotel);
         $progress = $this->checklist()->progress($this->checklist()->items($owner, $team->fresh()));
-        $this->assertSame([7, 7, 100, true], [$progress['done'], $progress['total'], $progress['percent'], $progress['complete']], 'all set without upgrading');
+        $this->assertSame([6, 6, 100, true], [$progress['done'], $progress['total'], $progress['percent'], $progress['complete']], 'all set without upgrading');
 
         $member = User::factory()->create();
         $team->addMember($member, TeamRole::Member);
@@ -115,21 +115,26 @@ class SetupChecklistTest extends TestCase
         [$user, $team, $hotel] = $this->member();
 
         $progress = $this->checklist()->progress($this->checklist()->items($user, $team));
-        $this->assertSame([2, 7, 29, false], [$progress['done'], $progress['total'], $progress['percent'], $progress['complete']], 'the email and the hotel are done');
+        $this->assertSame([1, 6, 17, false], [$progress['done'], $progress['total'], $progress['percent'], $progress['complete']], 'only the hotel is done');
 
         $this->facts($hotel, ['Price range per night' => '$100', 'Number of rooms' => '10']);
-        $this->assertSame(3, $this->checklist()->progress($this->checklist()->items($user, $team->fresh()))['done']);
+        $this->assertSame(2, $this->checklist()->progress($this->checklist()->items($user, $team->fresh()))['done']);
     }
 
     // --- the done rules --------------------------------------------------------------------------
 
-    public function test_verify_your_email(): void
+    public function test_there_is_no_verify_your_email_item_because_the_checklist_never_shows_to_unverified_emails(): void
     {
-        [$verified, $team] = $this->member();
-        [$unverified, $other] = $this->member(verified: false);
+        [$user, $team, $hotel] = $this->member(Plan::Private);
 
-        $this->assertTrue($this->done('email', $verified, $team, null));
-        $this->assertFalse($this->done('email', $unverified, $other, null));
+        $this->assertNotContains('email', array_column($this->checklist()->items($user, $team), 'key'));
+        $this->assertNotContains('email', [...SetupChecklist::BASE, ...SetupChecklist::PRIVATE]);
+        $this->assertFalse(Lang::has('checklist.items.email.title', 'en', false));
+        $this->assertFalse(Lang::has('checklist.items.email.title', 'id', false));
+        Livewire::actingAs($user)->test(SetupChecklistComponent::class)->assertDontSeeHtml('data-item="email"')->assertDontSee('Verify your email');
+
+        [$unverified] = $this->member(verified: false);
+        $this->assertFalse($this->checklist()->available($unverified, 'hotels.show'), 'an unverified email sees no checklist at all');
     }
 
     public function test_add_your_hotel_needs_name_city_and_website(): void
@@ -286,10 +291,10 @@ class SetupChecklistTest extends TestCase
         [$user, $team, $hotel] = $this->member();
 
         $component = Livewire::actingAs($user)->test(SetupChecklistComponent::class);
-        $component->assertSee('2 of 7 done')->assertSeeHtml('data-item="scan" data-done="0"');
+        $component->assertSee('1 of 6 done')->assertSeeHtml('data-item="scan" data-done="0"');
 
         ScanRun::factory()->create(['hotel_id' => $hotel->id]);
-        $component->dispatch('setup-checklist-refresh')->assertSee('3 of 7 done')->assertSeeHtml('data-item="scan" data-done="1"');
+        $component->dispatch('setup-checklist-refresh')->assertSee('2 of 6 done')->assertSeeHtml('data-item="scan" data-done="1"');
     }
 
     // --- the card, the pill and the saved state ----------------------------------------------------------
@@ -315,7 +320,7 @@ class SetupChecklistTest extends TestCase
         Livewire::actingAs($user)->test(SetupChecklistComponent::class)->call('minimize')->assertSet('state', 'minimized');
         $this->assertSame('minimized', SetupChecklistState::where(['user_id' => $user->id, 'team_id' => $team->id])->value('state'));
 
-        Livewire::actingAs($user)->test(SetupChecklistComponent::class)->assertSet('state', 'minimized')->assertSeeHtml('data-state="minimized"')->assertSee('Setup 2/7');
+        Livewire::actingAs($user)->test(SetupChecklistComponent::class)->assertSet('state', 'minimized')->assertSeeHtml('data-state="minimized"')->assertSee('Setup 1/6');
         Livewire::actingAs($second)->test(SetupChecklistComponent::class)->assertSet('state', 'expanded');
 
         $user->switchTeam($otherTeam);
@@ -357,7 +362,7 @@ class SetupChecklistTest extends TestCase
         $this->completeBase($user, $team, $hotel);
 
         $first = Livewire::actingAs($user)->test(SetupChecklistComponent::class);
-        $first->assertSet('state', 'expanded')->assertSee('All set')->assertSee('7 of 7 done')->assertSeeHtml('id="setup-checklist-all-set"');
+        $first->assertSet('state', 'expanded')->assertSee('All set')->assertSee('6 of 6 done')->assertSeeHtml('id="setup-checklist-all-set"');
         $this->assertSame(1, $this->checklist()->record($user, $team)->all_set_views);
 
         // A Livewire refresh on the same page does not count as another visit.
@@ -510,10 +515,79 @@ class SetupChecklistTest extends TestCase
         app()->setLocale('id');
 
         $this->actingAs($user)->get(route('hotels.scans', $hotel))->assertOk()
-            ->assertSee('Mulai di sini')->assertSee('2 dari 7 selesai')->assertSee('Tambahkan minimal 3 pesaing')->assertSee('Sembunyikan daftar ini')->assertSee('Daftar periksa pengaturan')->assertDontSee('Get started');
+            ->assertSee('Mulai di sini')->assertSee('1 dari 6 selesai')->assertSee('Tambahkan minimal 3 pesaing')->assertSee('Sembunyikan daftar ini')->assertSee('Daftar periksa pengaturan')->assertDontSee('Get started');
     }
 
     // --- the look: z-index, tours, narrow screens, motion -------------------------------------------------------------------
+
+    /**
+     * The list items of the card by key: [key => ['done' => bool, 'html' => string]].
+     *
+     * @return array<string, array{done: bool, html: string}>
+     */
+    private function renderedItems(string $html): array
+    {
+        preg_match_all('/<li[^>]*data-item="([a-z_]+)" data-done="([01])".*?<\/li>/s', $html, $matches, PREG_SET_ORDER);
+
+        return collect($matches)->mapWithKeys(fn (array $m) => [$m[1] => ['done' => $m[2] === '1', 'html' => $m[0]]])->all();
+    }
+
+    public function test_done_items_are_compact_with_no_link_and_open_items_keep_theirs(): void
+    {
+        [$user, $team, $hotel] = $this->member();
+        $this->facts($hotel, ['Price range per night' => '$100', 'Number of rooms' => '10']);
+
+        $items = $this->renderedItems(Livewire::actingAs($user)->test(SetupChecklistComponent::class)->html());
+
+        $this->assertSame(['hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'], array_keys($items), 'the order does not change');
+        foreach (['hotel', 'facts'] as $key) {
+            $this->assertTrue($items[$key]['done'], $key);
+            $this->assertStringNotContainsString('<a ', $items[$key]['html'], "{$key} is done: no link or button");
+            $this->assertStringNotContainsString('btn', $items[$key]['html'], $key);
+            $this->assertStringNotContainsString(__("checklist.items.{$key}.help"), $items[$key]['html'], "{$key} is done: no help line");
+            $this->assertStringContainsString(__("checklist.items.{$key}.title"), $items[$key]['html'], "{$key} keeps its title");
+            $this->assertStringContainsString('fa-circle-check', $items[$key]['html'], "{$key} keeps the green tick");
+            $this->assertStringContainsString('text-muted', $items[$key]['html'], "{$key}: dimmed title");
+        }
+        foreach (['competitors', 'prompts', 'scan', 'recommendation'] as $key) {
+            $this->assertFalse($items[$key]['done'], $key);
+            $this->assertStringContainsString('<a href="', $items[$key]['html'], "{$key} is open: it keeps its button");
+            $this->assertStringContainsString(__("checklist.items.{$key}.action"), $items[$key]['html'], $key);
+            $this->assertStringContainsString(__("checklist.items.{$key}.help"), $items[$key]['html'], "{$key} keeps its help line");
+            $this->assertStringContainsString('fw-semibold', $items[$key]['html'], "{$key}: the open title stands out");
+        }
+    }
+
+    public function test_an_item_loses_its_link_as_soon_as_it_is_done(): void
+    {
+        [$user, , $hotel] = $this->member();
+        $component = Livewire::actingAs($user)->test(SetupChecklistComponent::class);
+
+        $this->assertStringContainsString('<a href="', $this->renderedItems($component->html())['scan']['html']);
+
+        ScanRun::factory()->create(['hotel_id' => $hotel->id]);
+        $after = $this->renderedItems($component->dispatch('setup-checklist-refresh')->html())['scan'];
+
+        $this->assertTrue($after['done']);
+        $this->assertStringNotContainsString('<a ', $after['html']);
+        $this->assertStringNotContainsString(__('checklist.items.scan.help'), $after['html']);
+    }
+
+    public function test_when_everything_is_done_the_list_has_no_buttons_at_all_and_a_trial_upgrade_item_keeps_its_link(): void
+    {
+        [$owner, $team, $hotel] = $this->member(Plan::Trial);
+        $this->completeBase($owner, $team, $hotel);
+
+        $items = $this->renderedItems(Livewire::actingAs($owner)->test(SetupChecklistComponent::class)->html());
+
+        foreach (['hotel', 'facts', 'competitors', 'prompts', 'scan', 'recommendation'] as $key) {
+            $this->assertTrue($items[$key]['done'], $key);
+            $this->assertStringNotContainsString('<a ', $items[$key]['html'], $key);
+        }
+        $this->assertFalse($items['upgrade']['done']);
+        $this->assertStringContainsString('<a href="'.route('settings.billing').'"', $items['upgrade']['html'], 'the upgrade item is never done, so it keeps its button');
+        $this->assertSame('upgrade', array_key_last($items), 'and stays last');
+    }
 
     public function test_the_styles_keep_it_below_modals_hide_it_during_tours_and_leave_room_for_the_page(): void
     {
@@ -528,6 +602,7 @@ class SetupChecklistTest extends TestCase
         $this->assertMatchesRegularExpression('/max-width: 991\.98px\) \{\s*\.cv-checklist__card\.is-sheet \{[^}]*bottom: 0;[^}]*border-radius: \.75rem \.75rem 0 0;/s', $scss, 'a bottom sheet on a narrow screen');
         $this->assertMatchesRegularExpression('/prefers-reduced-motion: reduce\) \{\s*\.cv-checklist \* \{ transition: none !important; animation: none !important; \}/', $scss);
         $this->assertStringContainsString(':is(button, a):focus-visible', $scss);
+        $this->assertMatchesRegularExpression('/&\.is-done \{[^}]*padding: \.3rem 0;/s', $scss, 'done items are compact');
         $this->assertStringContainsString('$cv-header-bg', $scss);
     }
 
@@ -537,7 +612,7 @@ class SetupChecklistTest extends TestCase
 
         $html = $this->actingAs($user)->get(route('hotels.scans', $hotel))->assertOk()->getContent();
 
-        foreach (['id="setup-checklist-pill"', 'id="setup-checklist-card"', 'id="setup-checklist-minimize"', 'id="setup-checklist-hide"', 'aria-label="Minimize the checklist"', 'aria-label="Checklist menu"', 'aria-label="Open the setup checklist"', 'role="progressbar"', '@keydown.escape.window', 'max-width: 991.98px', 'cv-checklist__ring', 'Setup 2/7'] as $needle) {
+        foreach (['id="setup-checklist-pill"', 'id="setup-checklist-card"', 'id="setup-checklist-minimize"', 'id="setup-checklist-hide"', 'aria-label="Minimize the checklist"', 'aria-label="Checklist menu"', 'aria-label="Open the setup checklist"', 'role="progressbar"', '@keydown.escape.window', 'max-width: 991.98px', 'cv-checklist__ring', 'Setup 1/6'] as $needle) {
             $this->assertStringContainsString($needle, $html, $needle);
         }
         $this->assertStringContainsString('narrow', $html);

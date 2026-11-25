@@ -1476,6 +1476,13 @@ $cv-heat-levels: (0: 0%, 1: 14%, 2: 30%, 3: 50%, 4: 75%, 5: 100%);
 
     &:first-child { border-top: 0; }
     &.is-extra { opacity: .9; }
+
+    // Done: only the tick and the title, closer together, so the open items stand out.
+    &.is-done {
+        align-items: center;
+        padding: .3rem 0;
+        font-size: $cv-font-size-sm;
+    }
 }
 
 .cv-checklist__icon {

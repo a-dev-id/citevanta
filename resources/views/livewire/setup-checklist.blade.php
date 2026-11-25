@@ -57,13 +57,16 @@
                             <li @class(['cv-checklist__item', 'is-done' => $item['done'], 'is-extra' => ! $item['counted']]) data-item="{{ $item['key'] }}" data-done="{{ $item['done'] ? '1' : '0' }}">
                                 <i @class(['fa-solid cv-checklist__icon', $item['icon'], 'text-success' => $item['done'], 'text-muted' => ! $item['done']]) aria-hidden="true"></i>
                                 <div class="flex-grow-1 min-w-0">
-                                    <span class="d-block fw-semibold">{{ $item['title'] }}
+                                    <span @class(['d-block', 'fw-semibold' => ! $item['done'], 'text-muted' => $item['done']])>{{ $item['title'] }}
                                         <span class="visually-hidden">({{ ! $item['counted'] ? __('checklist.ui.not_counted') : ($item['done'] ? __('checklist.ui.done') : __('checklist.ui.todo')) }})</span>
                                     </span>
-                                    <span class="d-block small text-muted">{{ $item['help'] }}</span>
-                                    @if ($item['url'])
-                                        <a href="{{ $item['url'] }}" @class(['btn btn-sm mt-1', 'btn-outline-primary' => ! $item['done'], 'btn-link px-0' => $item['done']])>{{ $item['action'] }}</a>
-                                    @endif
+                                    {{-- A done item is compact: the tick and the title only, with no help and no button, so the open items stand out. --}}
+                                    @unless ($item['done'])
+                                        <span class="d-block small text-muted">{{ $item['help'] }}</span>
+                                        @if ($item['url'])
+                                            <a href="{{ $item['url'] }}" class="btn btn-sm btn-outline-primary mt-1">{{ $item['action'] }}</a>
+                                        @endif
+                                    @endunless
                                 </div>
                             </li>
                         @endforeach

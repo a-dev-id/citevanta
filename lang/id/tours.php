@@ -51,7 +51,7 @@ return [
     'prompts-scans' => [
         'name' => 'Prompt dan scan',
         'steps' => [
-            'prompts' => ['title' => 'Apa itu prompt', 'text' => 'Prompt adalah pertanyaan yang diajukan wisatawan kepada asisten AI, misalnya "hotel butik terbaik di Ubud". Nama hotel Anda tidak pernah kami masukkan, supaya jawabannya jujur. Perubahan tersimpan otomatis.'],
+            'prompts' => ['title' => 'Apa itu prompt', 'text' => 'Prompt adalah pertanyaan yang diajukan wisatawan kepada asisten AI, misalnya "hotel butik terbaik di Ubud". Perubahan tersimpan otomatis. Nama hotel Anda tidak pernah kami masukkan, supaya jawabannya menunjukkan bagaimana wisatawan benar-benar menemukan Anda.'],
             'regenerate' => ['title' => 'Prompt yang disarankan', 'text' => 'Kami menyarankan prompt untuk hotel Anda. "Regenerate" mengganti saran yang belum Anda ubah; prompt buatan Anda dan yang sudah diedit tetap aman.'],
             'run_scan' => ['title' => 'Jalankan scan', 'text' => 'Tekan "Scan now" di dasbor, atau tunggu scan terjadwal. Setiap scan manual memakai satu dari scan yang termasuk dalam paket Anda tiap bulan; dasbor menunjukkan sisanya.'],
             'history' => ['title' => 'Riwayat scan', 'text' => 'Semua scan tercantum di sini. Filter berdasarkan status atau siapa yang memulai, lalu buka scan untuk melihat jawabannya.'],
@@ -76,7 +76,7 @@ return [
         'steps' => [
             'ai_key' => ['title' => 'Kunci OpenAI Anda', 'text' => 'Pada paket Private, setiap panggilan AI tim Anda memakai kunci OpenAI milik Anda sendiri, sehingga Anda membayar langsung ke OpenAI. Tempel di sini; kunci disimpan terenkripsi dan hanya 4 karakter terakhir yang ditampilkan.'],
             'budget' => ['title' => 'Anggaran bulanan', 'text' => 'Batas pengaman untuk kunci Anda, selain batas pengeluaran di OpenAI. Tetapkan biaya AI maksimum per bulan; bar menunjukkan berapa yang sudah terpakai.'],
-            'google_share' => ['title' => 'Bagikan Google kepada kami', 'text' => 'Beri akun layanan kami akses baca saja ke Google Analytics dan Search Console Anda. Salin emailnya dan tambahkan sebagai penampil; kami tidak pernah bisa mengubah apa pun.'],
+            'google_share' => ['title' => 'Bagikan akses kepada kami', 'text' => 'Hanya baca: kami bisa melihat laporan, tidak pernah mengubah apa pun. Salin email service account dan tambahkan di GA4 sebagai Viewer (Admin > Property access management) dan di Search Console dengan izin Restricted (Settings > Users and permissions).'],
             'google_pick' => ['title' => 'Pilih properti Anda', 'text' => 'Tekan "Check connection", lalu pilih properti GA4 dan situs Search Console Anda. Data pertama masuk dalam beberapa jam.'],
             'google_menu' => ['title' => 'Kembali kapan saja', 'text' => 'Connect Google, kunci AI, dan pengaturan lainnya ada di menu Settings.'],
         ],

@@ -51,7 +51,7 @@ return [
     'prompts-scans' => [
         'name' => 'Prompts and scans',
         'steps' => [
-            'prompts' => ['title' => 'What prompts are', 'text' => 'Prompts are the questions travellers ask AI assistants, like "best boutique hotel in Ubud". We never put your hotel name in them, so the answers are honest. Changes save automatically.'],
+            'prompts' => ['title' => 'What prompts are', 'text' => 'Prompts are the questions travellers ask AI assistants, like "best boutique hotel in Ubud". Changes save automatically. We never put your hotel name in them, so the answers show how travellers really find you.'],
             'regenerate' => ['title' => 'Suggested prompts', 'text' => 'We suggest prompts for your hotel. "Regenerate" replaces the suggestions you did not edit; your own and edited prompts are kept.'],
             'run_scan' => ['title' => 'Run a scan', 'text' => 'Press "Scan now" on the dashboard, or wait for the scheduled scan. Each manual scan uses one of the scans your plan includes each month; the dashboard shows how many are left.'],
             'history' => ['title' => 'Your scan history', 'text' => 'Every scan is listed here. Filter by status or by who started it, and open a scan to see its answers.'],
@@ -76,7 +76,7 @@ return [
         'steps' => [
             'ai_key' => ['title' => 'Your OpenAI key', 'text' => 'On the Private plan every AI call of your team uses your own OpenAI key, so you pay OpenAI directly. Paste it here; it is stored encrypted and only the last 4 characters are ever shown.'],
             'budget' => ['title' => 'Monthly budget', 'text' => 'A safety limit for your own key, on top of the spend limit in OpenAI. Set the most you want AI work to cost in a month; the bar shows how much you have used.'],
-            'google_share' => ['title' => 'Share Google with us', 'text' => 'Give our service account read-only access to your Google Analytics and Search Console. Copy the email and add it as a viewer; we can never change anything.'],
+            'google_share' => ['title' => 'Share access with us', 'text' => 'Read-only: we can see reports, never change anything. Copy the service account email and add it in GA4 as a Viewer (Admin > Property access management) and in Search Console with the Restricted permission (Settings > Users and permissions).'],
             'google_pick' => ['title' => 'Pick your property', 'text' => 'Press "Check connection", then choose your GA4 property and Search Console site. The first data arrives within a few hours.'],
             'google_menu' => ['title' => 'Back here any time', 'text' => 'Connect Google, the AI key and the other settings live in the Settings menu.'],
         ],

@@ -26,7 +26,6 @@ return [
     ],
 
     'items' => [
-        'email' => ['title' => 'Verifikasi email Anda', 'help' => 'Alamat email Anda sudah dikonfirmasi.', 'action' => 'Verifikasi'],
         'hotel' => ['title' => 'Tambahkan hotel Anda', 'help' => 'Nama, kota, dan situs web hotel Anda.', 'action' => 'Tambah hotel'],
         'facts' => ['title' => 'Isi fakta hotel', 'help' => 'Jawaban AI hanya sebaik fakta Anda: isi setidaknya kisaran harga dan jumlah kamar.', 'action' => 'Isi fakta'],
         'competitors' => ['title' => 'Tambahkan minimal 3 pesaing', 'help' => 'Hotel yang dibandingkan wisatawan dengan hotel Anda.', 'action' => 'Tambah pesaing'],
