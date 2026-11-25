@@ -3,7 +3,7 @@
     $label = $d->previous ? 'vs previous scan' : null;
 @endphp
 
-<div class="row gx-3">
+<div class="row gx-3" data-tour="visibility">
     <div class="col-sm-6 col-xl-3">
         <x-widget-summary title="Overall visibility" icon="fa-eye" variant="primary"
                           :value="\App\Services\Dashboard\DashboardService::pct($m->visibility)"

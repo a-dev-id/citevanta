@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function (): void {
             Route::group([], base_path('routes/cron.php'));
             Route::group([], base_path('routes/webhooks.php'));
+            Route::group([], base_path('routes/tracking.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

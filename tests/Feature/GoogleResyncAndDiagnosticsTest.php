@@ -103,7 +103,7 @@ class GoogleResyncAndDiagnosticsTest extends TestCase
 
         $result = app(GoogleSync::class)->resyncTeam($team->id);
 
-        $this->assertSame(['hotels' => 1, 'jobs' => 3], $result, 'GA4 traffic, GA4 events and booking dates; Search Console is not touched');
+        $this->assertSame(['hotels' => 1, 'jobs' => 4], $result, 'GA4 traffic, daily totals, GA4 events and booking dates; Search Console is not touched');
         $first = now()->subDay()->subMonthsNoOverflow(25)->toDateString();
         Bus::assertDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GA4_TRAFFIC && $job->from === $first && $job->until === now()->subDay()->toDateString());
         Bus::assertNotDispatched(GoogleSyncJob::class, fn ($job) => $job->type === GoogleSync::GSC_DAY);

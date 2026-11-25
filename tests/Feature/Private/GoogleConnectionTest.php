@@ -594,7 +594,7 @@ class GoogleConnectionTest extends TestCase
 
         $jobs = app(GoogleSync::class)->schedule($link);
 
-        $this->assertSame(2 + 5, $jobs, 'GA4 traffic and events for the last 3 days, Search Console for 5 days');
+        $this->assertSame(3 + 5, $jobs, 'GA4 traffic, daily totals and events for the last 3 days, Search Console for 5 days');
         // 3 days x 5 sources = 15 traffic rows, fetched 7 at a time.
         $this->assertSame(15, DB::table('ga4_traffic_daily')->where('hotel_id', $hotel->id)->count());
         $this->assertSame(5, DB::table('gsc_daily')->where('hotel_id', $hotel->id)->distinct()->count('date'));

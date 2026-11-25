@@ -11,7 +11,7 @@
 
     <div class="row gx-3">
         <div class="col-xl-7">
-            <x-card title="Your OpenAI API key" subtitle="On the Private plan every AI call of your team (scans, analysis, insights, content) uses your own key." :collapsible="false">
+            <x-card title="Your OpenAI API key" subtitle="On the Private plan every AI call of your team (scans, analysis, insights, content) uses your own key." :collapsible="false" data-tour="ai-key">
                 @if ($team->hasOwnAiKey())
                     <p class="mb-1">Saved key: <code>{{ $team->maskedAiKey() }}</code></p>
                     <p class="small text-muted">
@@ -49,7 +49,7 @@
         </div>
 
         <div class="col-xl-5">
-            <x-card title="Monthly AI budget" subtitle="A safety limit for your own key, on top of the spend limit in OpenAI" :collapsible="false">
+            <x-card title="Monthly AI budget" subtitle="A safety limit for your own key, on top of the spend limit in OpenAI" :collapsible="false" data-tour="ai-budget">
                 <p class="mb-2">This month: <strong class="cv-num">${{ number_format($spent, 2) }}</strong> of <span class="cv-num">${{ number_format($team->ai_budget_usd, 2) }}</span></p>
                 <div class="progress mb-3" role="progressbar" aria-label="AI budget used"
                      aria-valuenow="{{ $team->ai_budget_usd > 0 ? min(100, round($spent / $team->ai_budget_usd * 100)) : 100 }}" aria-valuemin="0" aria-valuemax="100">

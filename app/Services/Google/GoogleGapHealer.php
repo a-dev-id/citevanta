@@ -19,6 +19,7 @@ final class GoogleGapHealer
     private const TABLES = [
         GoogleSync::GA4_TRAFFIC => 'ga4_traffic_daily',
         GoogleSync::GA4_EVENTS => 'ga4_events_daily',
+        GoogleSync::GA4_TOTALS => 'ga4_totals_daily',
     ];
 
     private const MAX_JOBS = 24;

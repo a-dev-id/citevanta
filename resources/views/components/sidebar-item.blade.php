@@ -8,7 +8,7 @@
 
 <li @class(['cv-nav__item', 'is-open' => $open])>
     @if ($item->hasChildren())
-        <button type="button" class="cv-nav__link" data-cv-submenu-toggle
+        <button type="button" class="cv-nav__link" data-tour="nav-{{ $item->key }}" data-cv-submenu-toggle
                 aria-expanded="{{ $open ? 'true' : 'false' }}" aria-controls="{{ $submenuId }}" title="{{ $item->label }}">
             <i class="fa-solid {{ $item->icon }} cv-nav__icon" aria-hidden="true"></i>
             <span class="cv-nav__label">{{ $item->label }}</span>
@@ -24,7 +24,7 @@
             @endforeach
         </ul>
     @else
-        <a href="{{ $item->url ?? '#' }}"
+        <a href="{{ $item->url ?? '#' }}" data-tour="nav-{{ $item->key }}"
            @class(['cv-nav__link', 'is-active' => $item->active])
            @if ($item->active) aria-current="page" @endif
            @if ($item->url === null) aria-disabled="true" @endif

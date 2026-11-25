@@ -68,6 +68,23 @@ class GoogleIntegrationController extends Controller
     }
 
     /**
+     * Read only the last 7 days for the team of the chosen hotel; replaced by date, the history is not touched.
+     */
+    public function syncNow(Request $request, GoogleSync $sync, GoogleAgent $agent): RedirectResponse
+    {
+        $data = $request->validate(['hotel' => ['required', 'integer', 'exists:hotels,id']]);
+        $hotel = Hotel::query()->with('team')->findOrFail($data['hotel']);
+
+        if ($agent->isBroken()) {
+            return to_route('admin.integrations.google')->with('error', 'Google refused the service account key. Click Test connection first.');
+        }
+
+        $result = $sync->syncRecentTeam($hotel->team_id, 7);
+
+        return to_route('admin.integrations.google')->with('status', "Sync started for {$hotel->team?->name}: the last 7 days of {$result['hotels']} hotel(s). They are replaced by date; the history is not touched.");
+    }
+
+    /**
      * Read the GA4 days older than the oldest stored day for the team of the chosen hotel.
      */
     public function backfill(Request $request, GoogleSync $sync, GoogleAgent $agent): RedirectResponse

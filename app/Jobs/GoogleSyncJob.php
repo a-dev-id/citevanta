@@ -116,8 +116,8 @@ class GoogleSyncJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        // The last window of the traffic data is in: compare it with a small live GA4 request.
-        if ($this->type === GoogleSync::GA4_TRAFFIC) {
+        // The last window of the traffic or totals data is in: compare it with a small live GA4 request.
+        if (in_array($this->type, [GoogleSync::GA4_TRAFFIC, GoogleSync::GA4_TOTALS], true)) {
             GoogleSelfCheckJob::dispatch($this->linkId);
         }
     }

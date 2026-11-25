@@ -27,7 +27,7 @@ final class AiSources
         $host = Url::host($source);
 
         foreach ($map as $key => $platform) {
-            if (str_contains($key, '.') && Url::sameSite($host, $key)) {
+            if (str_contains($key, '.') && ($host === $key || str_ends_with($host, '.'.$key))) {
                 return $platform;
             }
         }

@@ -18,6 +18,7 @@ use App\Http\Controllers\Site\AuditController;
 use App\Http\Controllers\Site\PageController;
 use App\Http\Controllers\Site\SeoController;
 use App\Http\Controllers\StorageFileController;
+use App\Http\Controllers\TourController;
 use App\Http\Controllers\WeeklyReportController;
 use App\Http\Middleware\SetSiteLocale;
 use App\Livewire\Hotels\AccuracyPage;
@@ -25,6 +26,7 @@ use App\Livewire\Hotels\HotelDashboard;
 use App\Livewire\Hotels\RecommendationsPage;
 use App\Livewire\Hotels\SetupWizard;
 use App\Livewire\Settings\ConnectGoogle;
+use App\Livewire\Settings\WebsiteScript;
 use App\Livewire\Site\AuditReport;
 use App\Services\Site\PublicPages;
 use Illuminate\Support\Facades\Route;
@@ -106,6 +108,11 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
     Route::put('settings/team', [TeamSettingsController::class, 'update'])->name('settings.team.update');
     Route::put('settings/notifications', [ProfileController::class, 'updateNotifications'])->name('settings.notifications');
 
+    // Guided tours: what the user did with each tour (see App\Services\Tours\TourService).
+    Route::post('tours/reset', [TourController::class, 'reset'])->name('tours.reset');
+    Route::post('tours/{tour}/finish', [TourController::class, 'finish'])->name('tours.finish')->where('tour', '[a-z-]+');
+    Route::post('tours/{tour}/skip', [TourController::class, 'skip'])->name('tours.skip')->where('tour', '[a-z-]+');
+
     // Private plan: the team's own OpenAI key (owners only).
     Route::get('settings/ai-key', [AiKeyController::class, 'show'])->name('settings.ai-key');
     Route::get('settings/ai-key/guide', [AiKeyController::class, 'guide'])->name('settings.ai-key.guide');
@@ -116,6 +123,9 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
 
     // Private plan: GA4 and Search Console through the agent email (owners only).
     Route::livewire('settings/google', ConnectGoogle::class)->name('settings.google');
+
+    // Private plan: the website tracking script (owners only).
+    Route::livewire('settings/website-script', WebsiteScript::class)->name('settings.website-script');
 
     // Billing (owners only; see TeamPolicy::manageBilling and InvoicePolicy).
     Route::get('settings/billing', [BillingController::class, 'show'])->name('settings.billing');
@@ -149,10 +159,12 @@ Route::middleware(['auth', 'verified', 'team'])->group(function () {
         Route::post('integrations/google/test', [GoogleIntegrationController::class, 'test'])->name('integrations.google.test');
         Route::post('integrations/google/diagnose', [GoogleIntegrationController::class, 'diagnose'])->name('integrations.google.diagnose');
         Route::post('integrations/google/resync', [GoogleIntegrationController::class, 'resync'])->name('integrations.google.resync');
+        Route::post('integrations/google/sync-now', [GoogleIntegrationController::class, 'syncNow'])->name('integrations.google.sync-now');
         Route::post('integrations/google/backfill', [GoogleIntegrationController::class, 'backfill'])->name('integrations.google.backfill');
         Route::post('system/deploy-tasks', [AdminController::class, 'runDeployTasks'])->name('system.deploy-tasks');
         Route::post('system/clear-caches', [AdminController::class, 'clearCaches'])->name('system.clear-caches');
         Route::post('system/resume-paused', [AdminController::class, 'resumePaused'])->name('system.resume-paused');
         Route::post('teams/{team}/approve-trial', [AdminController::class, 'approveTrial'])->name('teams.approve-trial');
+        Route::post('teams/{team}/reset-tours', [AdminController::class, 'resetTours'])->name('teams.reset-tours');
     });
 });

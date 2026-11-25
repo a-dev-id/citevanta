@@ -13,7 +13,7 @@
         <div class="alert alert-success" role="status"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i> {{ $notice }}</div>
     @endif
 
-    <x-card title="Quick wins" subtitle="High impact, an hour or less" :collapsible="false">
+    <x-card title="Quick wins" subtitle="High impact, an hour or less" :collapsible="false" data-tour="rec-quick-wins">
         @if ($quickWins->isEmpty())
             <x-empty-state icon="fa-bolt" text="No quick wins right now. Check the full list below." />
         @else
@@ -30,7 +30,7 @@
         @endif
     </x-card>
 
-    <x-card title="All recommendations" subtitle="{{ $openCount }} open" :flush="true" :collapsible="false">
+    <x-card title="All recommendations" subtitle="{{ $openCount }} open" :flush="true" :collapsible="false" data-tour="rec-list">
         <form class="row g-2 p-3 pb-0" aria-label="Filter and sort recommendations" wire:submit.prevent>
             <div class="col-sm-6 col-lg">
                 <label class="form-label small" for="rec-category">Category</label>
@@ -84,10 +84,15 @@
             <x-empty-state icon="fa-lightbulb" text="No recommendations match these filters. New ones appear after each scan." />
         @else
             <div class="accordion accordion-flush mt-3" id="recommendations">
+                @php
+                    // For the guided tour: the first recommendation that is open, and the first that is locked (trial).
+                    $tourOpenId = $items->first(fn ($row) => $unlocked === null || in_array($row->id, $unlocked, true))?->id;
+                    $tourLockedId = $items->first(fn ($row) => $unlocked !== null && ! in_array($row->id, $unlocked, true))?->id;
+                @endphp
                 @foreach ($items as $item)
                     @if ($unlocked !== null && ! in_array($item->id, $unlocked, true))
                         {{-- Trial: title and category only. --}}
-                        <div class="accordion-item" wire:key="rec-{{ $item->id }}" id="recommendation-{{ $item->id }}">
+                        <div class="accordion-item" wire:key="rec-{{ $item->id }}" id="recommendation-{{ $item->id }}" @if ($item->id === $tourLockedId) data-tour="rec-locked" @endif>
                             <div class="d-flex flex-wrap align-items-center gap-2 px-3 py-3">
                                 <span class="flex-grow-1">
                                     <span class="d-block fw-semibold">{{ $item->title }}</span>
@@ -105,7 +110,7 @@
                         </div>
                         @continue
                     @endif
-                    <div class="accordion-item" wire:key="rec-{{ $item->id }}" id="recommendation-{{ $item->id }}">
+                    <div class="accordion-item" wire:key="rec-{{ $item->id }}" id="recommendation-{{ $item->id }}" @if ($item->id === $tourOpenId) data-tour="rec-first" @endif>
                         <h3 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#rec-body-{{ $item->id }}" aria-expanded="false" aria-controls="rec-body-{{ $item->id }}">

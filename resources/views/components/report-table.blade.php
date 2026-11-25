@@ -53,10 +53,10 @@
     };
 @endphp
 
-<div id="table-{{ $table->key }}">
+<div id="table-{{ $table->key }}" data-tour="report-table">
 <x-card :title="$table->title" :flush="true" :collapsible="false">
     <x-slot:actions>
-        <a href="{{ route('hotels.reports.export', [$hotel, $table->key] + $period->query() + array_filter(['sort' => request()->query('sort')])) }}" class="btn btn-sm btn-outline-secondary" title="All rows of this date range{{ $period->hasComparison() ? ', with the comparison columns' : '' }}">
+        <a href="{{ route('hotels.reports.export', [$hotel, $table->key] + $period->query() + array_filter(['sort' => request()->query('sort')])) }}" class="btn btn-sm btn-outline-secondary" data-tour="report-csv" title="All rows of this date range{{ $period->hasComparison() ? ', with the comparison columns' : '' }}">
             <i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>CSV
         </a>
     </x-slot:actions>

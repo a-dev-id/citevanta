@@ -7,10 +7,10 @@
         </div>
     @endif
 
-    <x-card title="Prompts" subtitle="Questions travellers ask AI assistants. They never include your hotel's name. Changes save automatically." :collapsible="false" :flush="true">
+    <x-card title="Prompts" subtitle="Questions travellers ask AI assistants. They never include your hotel's name. Changes save automatically." :collapsible="false" :flush="true" data-tour="prompts">
         <x-slot:actions>
             <span @class(['cv-usage me-2', 'is-full' => $full])>{{ $activeCount }} of {{ $limit }} active</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="regenerate"
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-tour="prompts-regenerate" wire:click="regenerate"
                     wire:confirm="Replace the suggested prompts you have not edited? Your edited and custom prompts are kept.">
                 <i class="fa-solid fa-rotate me-1" aria-hidden="true" wire:loading.class="fa-spin" wire:target="regenerate"></i> Regenerate suggestions
             </button>

@@ -89,6 +89,16 @@
                                         <input id="comp-until-{{ $team->id }}" type="date" name="until" class="form-control form-control-sm" style="width: 9.5rem" title="Until (empty = no end)">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">Comp plan</button>
                                     </form>
+                                    <form method="POST" action="{{ route('admin.teams.reset-tours', $team) }}" class="d-flex gap-1 mt-1">
+                                        @csrf
+                                        <label class="visually-hidden" for="tours-user-{{ $team->id }}">Member</label>
+                                        <select id="tours-user-{{ $team->id }}" name="user" class="form-select form-select-sm" style="width: 10rem">
+                                            @foreach ($team->users as $member)
+                                                <option value="{{ $member->id }}">{{ $member->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" @disabled($team->users->isEmpty())>Reset tours</button>
+                                    </form>
                                     <a href="{{ route('admin.teams.private-plan', $team) }}" class="btn btn-sm btn-link px-0">{{ $team->isPrivate() ? 'Edit private plan' : 'Private plan…' }}</a>
                                 </td>
                             </tr>

@@ -116,6 +116,18 @@ The first GA4 sync copies `GA4_FIRST_SYNC_MONTHS` months (default **25**) in ord
 
 A team that was synced with fewer months (for example 13) is not copied again. Use **Backfill older data** (Admin > Integrations > Google, pick the team and hotel) or `php artisan citevanta:google-backfill {team}`: it reads only the days older than the oldest stored day, up to the configured number of months, with the same ordered, windowed method. Each window replaces only its own dates (replace by date), so nothing newer is touched and the reports never go empty. Run it once after upgrading; the daily gap check then keeps the days complete.
 
+## "All sessions" come from daily totals
+
+Adding up the detailed traffic rows (source, medium, country, landing page, device) can give **more** sessions than GA4 reports for the same days, because GA4 is not additive across those dimensions. So the sync also copies **daily totals** (a GA4 request with only the date dimension: sessions, engaged sessions, key events, purchases, revenue) into `ga4_totals_daily`. "All sessions", "all purchases", "all revenue", the AI share percentages and the findings use the daily totals. AI sessions, purchases and revenue still come from the detailed rows, which match GA4. A day that has no daily total yet (right after an upgrade) uses its detailed rows, so a report is never empty; **Sync now** or the next daily sync fills the totals in.
+
+The **self-check** after each sync compares the stored all-traffic totals and the stored AI rows with live GA4 for the last 28 days and warns when either differs by more than 2%. Admins see the numbers; hotel users see "Some totals are being checked and may change."
+
+**Run diagnostics** (Admin > Integrations > Google) shows, for the last 28 days, the stored rows by sync batch and whether any date has rows of more than one batch, and three live GA4 totals for the same range: the detailed rows added up, only the date dimension added up and no dimensions, so you can see whether GA4 is non-additive for a property.
+
+## Sync now (last 7 days)
+
+**Sync now (last 7 days)** on Admin > Integrations > Google, or `php artisan citevanta:google-sync-now {team} [--days=7]`, reads only the last 7 days of traffic, daily totals, events and booking dates and replaces them by date. The history is not touched. Use it after a fix, or to refresh the latest days.
+
 ## The Reports page (Private plan)
 
 - **Date range:** presets (last 7, 28, 30 and 90 days, this month, last month, last 12 months, this year) or a custom range on a two-month calendar. The range starts no earlier than the first synced day; a custom range ends no later than the last fully synced day. The selection is in the URL (`?from=&to=&compare=`), so it can be bookmarked or shared, and it applies to both tabs.

@@ -15,6 +15,18 @@ Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_a
 
 ---
 
+## Not released yet (after 1.8.0)
+
+- **All-traffic totals fixed:** "all sessions", "all purchases" and "all revenue" (and the AI share percentages and findings) now come from daily totals (a GA4 request with only the date dimension), because adding up the detailed rows gave more sessions than GA4 reports. The self-check compares the totals and the AI rows. Run diagnostics shows the stored rows by sync batch and three live totals. **Sync now (last 7 days)** button and `citevanta:google-sync-now`. After upgrading, click Sync now (or Re-sync) once to fill the daily totals; until a day has its total, its detailed rows are used.
+- **Data-check banner:** hotel users see "Some totals are being checked and may change."; admins see the numbers. Searches by date shows "No searches recorded yet" when the sync has finished with no rows. A landing page GA4 did not record is shown as "Not recorded by GA4".
+- **Website tracking script (Private plan):** a small cookie-free script for the hotel's own website (AI referral visits and booking clicks with dates), Settings > Website script (snippet, selectors and parameter names, debug mode, Check installation, privacy sentence), an endpoint that stores no IP addresses, and "Seen by the website script" in the AI traffic report. See docs/TRACKING-SCRIPT.md.
+- **Guided tours:** short tours of the Dashboard, Recommendations, Prompts and scans, Reports and Settings pages (English and Indonesian), a "?" help button in the header (take the tour of this page, restart all tours), progress remembered per user, and Admin > Teams > Reset tours. `TOURS_ENABLED=false` switches them off. See docs/GUIDED-TOURS.md.
+- **Bug fix:** normal Google traffic (google.com) was classified as the Gemini AI platform; only gemini.google.com and its subdomains are Gemini now.
+- **New migrations (3):** `create_ga4_totals_daily_table`, `create_hotel_tracking_tables` and `create_user_tours_table` (new tables; nothing is deleted).
+- **New `.env` keys (optional):** `TRACKING_RATE_PER_MINUTE=300`, `TRACKING_RETENTION_MONTHS=13`, `TOURS_ENABLED=true`.
+
+---
+
 ## What changed in 1.8.0 (on top of 1.7.1)
 
 - **Reports:** date picker with presets and a custom two-month calendar (kept in the URL, both tabs); comparison with the previous period (default) or the same period last year (optionally matching the day of week), disabled with a reason when the data does not reach back far enough, never showing missing days as zero; dashed comparison lines, % change on the cards, previous and change columns; every table paged on the server (10, 50, 100 rows, remembered per user), sortable over all rows, with the page, sort and size in the URL; CSV always has every row of the range (and the comparison columns).

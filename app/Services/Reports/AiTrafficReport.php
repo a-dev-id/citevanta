@@ -3,6 +3,8 @@
 namespace App\Services\Reports;
 
 use App\Models\Hotel;
+use App\Models\HotelTracking;
+use App\Models\TrackingEvent;
 use App\Services\Google\AiSources;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
@@ -20,6 +22,9 @@ use Illuminate\Support\Facades\DB;
 final class AiTrafficReport
 {
     private const LIMIT = 25;
+
+    /** GA4's "(not set)" landing page, in words a hotel understands. */
+    public const NOT_RECORDED = 'Not recorded by GA4';
 
     /** @var array<string, list<string>> */
     private array $sourceCache = [];
@@ -65,7 +70,8 @@ final class AiTrafficReport
      */
     public function totals(Carbon $from, Carbon $to): array
     {
-        $all = $this->base($from, $to)->selectRaw('coalesce(sum(sessions),0) as sessions, coalesce(sum(purchases),0) as purchases, coalesce(sum(revenue),0) as revenue')->first();
+        // All traffic: the daily totals (GA4 with only the date dimension), not the sum of the detailed rows.
+        $all = (object) TrafficTotals::sum($this->hotel->id, $from->toDateString(), $to->toDateString());
         $sources = $this->aiSources($from, $to);
         $ai = $sources === []
             ? (object) ['sessions' => 0, 'purchases' => 0, 'revenue' => 0]
@@ -172,7 +178,73 @@ final class AiTrafficReport
             $tables[$key] = ReportTable::make($key, $title, $columns, $rows, $compare ? 'Compared with '.$this->period->compareLabel().' ('.$this->period->compareName().'). Rows that only existed in the comparison period are not listed.' : null, $page);
         }
 
+        if ($this->scriptIsSetUp()) {
+            $tables['ai-script'] = $this->scriptTable($options, $compare);
+        }
+
         return $tables;
+    }
+
+    /** The hotel has the website script set up (a key was created), so its counts are shown. */
+    public function scriptIsSetUp(): bool
+    {
+        return HotelTracking::query()->where('hotel_id', $this->hotel->id)->exists();
+    }
+
+    /**
+     * What the website script saw in the period: AI referral visits and booking clicks, and the same for the
+     * comparison period. Null when the script is not set up.
+     *
+     * @return array{ai: int, clicks: int, prev_ai: int|null, prev_clicks: int|null}|null
+     */
+    public function scriptSeen(): ?array
+    {
+        if (! $this->scriptIsSetUp()) {
+            return null;
+        }
+
+        $count = function (Carbon $from, Carbon $to, string $type): int {
+            return TrackingEvent::query()->where('hotel_id', $this->hotel->id)->where('type', $type)
+                ->whereBetween('occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])->count();
+        };
+        $compare = $this->period->hasComparison();
+
+        return [
+            'ai' => $count($this->period->from, $this->period->to, TrackingEvent::AI_REFERRAL),
+            'clicks' => $count($this->period->from, $this->period->to, TrackingEvent::BOOKING_CLICK),
+            'prev_ai' => $compare ? $count($this->period->compareFrom, $this->period->compareTo, TrackingEvent::AI_REFERRAL) : null,
+            'prev_clicks' => $compare ? $count($this->period->compareFrom, $this->period->compareTo, TrackingEvent::BOOKING_CLICK) : null,
+        ];
+    }
+
+    /** AI visits seen by the script, by AI platform. */
+    private function scriptTable(TableOptions $options, bool $compare): ReportTable
+    {
+        $visits = function (Carbon $from, Carbon $to): array {
+            return TrackingEvent::query()->where('hotel_id', $this->hotel->id)->where('type', TrackingEvent::AI_REFERRAL)
+                ->whereBetween('occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+                ->groupBy('platform')->selectRaw('platform, count(*) as visits')->pluck('visits', 'platform')->map(fn ($n) => (int) $n)->all();
+        };
+        $now = $visits($this->period->from, $this->period->to);
+        $before = $compare ? $visits($this->period->compareFrom, $this->period->compareTo) : [];
+        $rows = [];
+
+        foreach ($now as $name => $count) {
+            $row = ['name' => (string) $name, 'visits' => $count];
+
+            if ($compare) {
+                $previous = (int) ($before[$name] ?? 0);
+                $row += ['prev_visits' => $previous, 'change' => $previous > 0 ? ($count - $previous) / $previous : null];
+            }
+
+            $rows[] = $row;
+        }
+
+        $columns = ['name' => 'AI platform|text', 'visits' => 'Visits seen by the script|int'] + ($compare ? ['prev_visits' => 'Previous visits|int', 'change' => 'Change|change'] : []);
+        [$rows, $page] = $options->forTable('ai-script', 'visits', ReportTable::sortableKeys($columns))->paginate($rows);
+
+        return ReportTable::make('ai-script', 'Seen by the website script', $columns, $rows,
+            'Visits the script on your own website saw arriving from an AI assistant (no cookies, no personal data). It only counts pages where the script is installed, so it can differ from GA4.', $page);
     }
 
     /**
@@ -213,7 +285,7 @@ final class AiTrafficReport
         }
 
         $query = new GroupedQuery(
-            $column,
+            self::groupExpression($column),
             fn () => $this->base($this->period->from, $this->period->to)->whereIn('source', $sources),
             $compare ? fn () => $this->base($this->period->compareFrom, $this->period->compareTo)->whereIn('source', $sources) : null,
             'sum(sessions) as sessions, sum(purchases) as purchases, sum(revenue) as revenue',
@@ -226,9 +298,9 @@ final class AiTrafficReport
         );
         [$found, $count] = $query->page($view);
 
-        $rows = array_map(function (object $row) use ($total, $compare): array {
+        $rows = array_map(function (object $row) use ($total, $compare, $column): array {
             $sessions = (int) $row->sessions;
-            $out = ['name' => $row->name === '' ? '(not set)' : (string) $row->name, 'sessions' => $sessions];
+            $out = ['name' => self::label($column, (string) $row->name), 'sessions' => $sessions];
 
             if ($compare) {
                 $previous = (int) $row->prev_sessions;
@@ -315,7 +387,7 @@ final class AiTrafficReport
     private function grouped(string $column, array $sources)
     {
         return $this->base($this->period->from, $this->period->to)->whereIn('source', $sources)
-            ->groupBy($column)->selectRaw("{$column} as name, sum(sessions) as sessions, sum(purchases) as purchases, sum(revenue) as revenue")
+            ->groupByRaw(self::groupExpression($column))->selectRaw(self::groupExpression($column).' as name, sum(sessions) as sessions, sum(purchases) as purchases, sum(revenue) as revenue')
             ->orderByDesc('sessions')->get();
     }
 
@@ -331,9 +403,23 @@ final class AiTrafficReport
         }
 
         return $this->grouped($column, $sources)->take(self::LIMIT)->map(fn ($row) => [
-            'name' => $row->name === '' ? '(not set)' : $row->name,
+            'name' => self::label($column, (string) $row->name),
             'sessions' => (int) $row->sessions, 'purchases' => (int) $row->purchases, 'revenue' => round((float) $row->revenue, 2),
         ])->all();
+    }
+
+    /** What a table groups by: the landing pages GA4 left empty or "(not set)" are one group. */
+    private static function groupExpression(string $column): string
+    {
+        return $column === 'landing_page' ? "case when landing_page in ('', '(not set)') then '' else landing_page end" : $column;
+    }
+
+    /** A row's name: a landing page GA4 did not record is "Not recorded by GA4"; other empty names stay "(not set)". */
+    private static function label(string $column, string $name): string
+    {
+        $unrecorded = in_array(strtolower(trim($name)), ['', '(not set)'], true);
+
+        return $unrecorded ? ($column === 'landing_page' ? self::NOT_RECORDED : '(not set)') : $name;
     }
 
     /**

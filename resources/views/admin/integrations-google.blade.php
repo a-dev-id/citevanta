@@ -28,13 +28,14 @@
                 </div>
                 <div class="col-md-4 d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn-primary btn-sm">Run diagnostics</button>
+                    <button type="submit" class="btn btn-outline-primary btn-sm" formaction="{{ route('admin.integrations.google.sync-now') }}" id="sync-now-button">Sync now (last 7 days)</button>
                     <button type="submit" class="btn btn-outline-secondary btn-sm" formaction="{{ route('admin.integrations.google.backfill') }}" id="backfill-button"
                             onclick="return confirm('Read the older GA4 days (back to {{ (int) config('citevanta.google.ga4_first_sync_months', 25) }} months) for this team? Only days older than the oldest stored day are read; the newer data is not touched.')">Backfill older data</button>
                     <button type="submit" class="btn btn-outline-danger btn-sm" formaction="{{ route('admin.integrations.google.resync') }}" id="resync-button"
                             onclick="return confirm('Copy the {{ (int) config('citevanta.google.ga4_first_sync_months', 25) }} months of GA4 data again for this team? Old rows stay until each window is replaced, so reports never go empty. It takes a while.')">Re-sync from scratch</button>
                 </div>
             </form>
-            <p class="small text-muted">Run diagnostics is read-only and makes a few GA4 requests. Backfill older data reads only the days older than the oldest stored day (for teams synced with fewer months). Re-sync copies the whole GA4 history again for every linked hotel of the chosen team (Search Console is not touched). The same checks run from the command line with <code>php artisan citevanta:google-diagnose</code>; <code>php artisan citevanta:google-resync</code> does the re-sync and <code>php artisan citevanta:google-backfill</code> the backfill.</p>
+            <p class="small text-muted">Run diagnostics is read-only and makes a few GA4 requests. Sync now reads only the last 7 days (traffic, totals, events, booking dates) and replaces them by date; the history is not touched. Backfill older data reads only the days older than the oldest stored day (for teams synced with fewer months). Re-sync copies the whole GA4 history again for every linked hotel of the chosen team (Search Console is not touched). The same checks run from the command line with <code>php artisan citevanta:google-diagnose</code>; <code>php artisan citevanta:google-resync</code> does the re-sync and <code>php artisan citevanta:google-backfill</code> the backfill and <code>php artisan citevanta:google-sync-now</code> the 7-day sync.</p>
         @endif
 
         @if (session('diagnostics'))

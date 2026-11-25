@@ -1,7 +1,7 @@
 @php($tz = $hotel->team?->timezoneName() ?? config('citevanta.default_timezone'))
 
 <x-layouts::app title="Scan history" :breadcrumbs="['Hotels' => route('hotels.index'), $hotel->name => route('hotels.show', $hotel), 'Scan history' => null]">
-    <x-card title="Scans of {{ $hotel->name }}" :flush="true" :collapsible="false">
+    <x-card title="Scans of {{ $hotel->name }}" :flush="true" :collapsible="false" data-tour="scans-list">
         <form method="GET" class="d-flex flex-wrap gap-2 align-items-end px-3 py-3 border-bottom">
             <div>
                 <label for="filter-status" class="form-label small mb-1">Status</label>
@@ -31,7 +31,7 @@
         @if ($scans->isEmpty())
             <x-empty-state icon="fa-clock-rotate-left" text="No scans match these filters." />
         @else
-            <div class="table-responsive">
+            <div class="table-responsive" data-tour="scans-table">
                 <table class="table table-hover">
                     <thead>
                         <tr>

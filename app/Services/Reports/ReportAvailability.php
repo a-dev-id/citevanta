@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Hotel;
+use App\Services\Google\GoogleSync;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -93,7 +94,12 @@ final class ReportAvailability
                 + ['developer' => $health['developer'] ?? null];
         }
 
-        return self::state('syncing', 'Booking dates are syncing', 'The check-in and check-out fields are mapped. The first copy runs in the background; check back later.', null, $hotel) + ['developer' => null];
+        if (GoogleSync::hasPendingJobs($link->id)) {
+            return self::state('syncing', 'Booking dates are syncing', 'The check-in and check-out fields are mapped. The first copy runs in the background; check back later.', null, $hotel) + ['developer' => null];
+        }
+
+        // The sync has finished and GA4 has no stay dates yet.
+        return self::state('no_searches', 'No searches recorded yet', 'Data appears 24–48 hours after the tracking tag is published.', null, $hotel) + ['developer' => null];
     }
 
     /**

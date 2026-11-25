@@ -81,6 +81,12 @@ class Hotel extends Model
         return $this->hasMany(VisibilityScore::class);
     }
 
+    /** @return HasOne<HotelTracking, $this> */
+    public function tracking(): HasOne
+    {
+        return $this->hasOne(HotelTracking::class);
+    }
+
     /** @return HasOne<HotelGoogleLink, $this> */
     public function googleLink(): HasOne
     {

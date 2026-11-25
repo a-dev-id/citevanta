@@ -46,7 +46,7 @@ class AdminAccessTest extends TestCase
 
         // The live database is on the release before the free audit (19 Nov 2026):
         // undo every migration since then, as if the new zip was just extracted.
-        Artisan::call('migrate:rollback', ['--step' => 12]);
+        Artisan::call('migrate:rollback', ['--step' => 15]);
         $this->assertFalse(Schema::hasTable('audits'));
 
         $this->actingAs($admin)->get(route('admin.system'))

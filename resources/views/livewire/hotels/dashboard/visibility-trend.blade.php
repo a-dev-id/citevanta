@@ -1,6 +1,6 @@
 @php($trends = $d->trends)
 
-<x-card title="Visibility trend" :subtitle="$trends ? 'Share of answers that mention your hotel, last '.$trends['scans'].' scans' : null" :collapsible="false">
+<x-card title="Visibility trend" :subtitle="$trends ? 'Share of answers that mention your hotel, last '.$trends['scans'].' scans' : null" :collapsible="false" data-tour="trend">
     @if ($trends)
         <x-slot:actions>
             <div class="btn-group cv-chart-toggle me-1" role="group" aria-label="Lines shown">

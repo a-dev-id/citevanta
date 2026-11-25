@@ -16,7 +16,7 @@
     <div class="cv-header__left">
         @if (count($shell->hotels) > 1)
             <div class="dropdown">
-                <button type="button" class="cv-header-switcher" data-bs-toggle="dropdown" aria-expanded="false">
+                <button type="button" class="cv-header-switcher" data-tour="hotel-switcher" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fa-solid fa-hotel" aria-hidden="true"></i>
                     <span class="cv-header-switcher__text">
                         <span class="cv-header-switcher__label">Hotel</span>
@@ -50,6 +50,28 @@
     </div>
 
     <div class="cv-header__right">
+        @if (config('citevanta.tours.enabled', true) && auth()->check())
+            {{-- Help: replay the tour of this page, or restart all tours (see resources/js/tour.js). --}}
+            <div class="dropdown">
+                <button type="button" class="cv-header-icon" data-tour="help" data-bs-toggle="dropdown" aria-expanded="false" aria-label="{{ __('tours.ui.help') }}">
+                    <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li class="cv-dropdown-header">{{ __('tours.ui.help') }}</li>
+                    <li>
+                        <button type="button" class="dropdown-item" data-cv-tour-start @disabled(! ($tour ?? null))>
+                            <i class="fa-solid fa-route" aria-hidden="true"></i>{{ ($tour ?? null) ? __('tours.ui.take_tour') : __('tours.ui.no_tour') }}
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="dropdown-item" data-cv-tour-restart>
+                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>{{ __('tours.ui.restart_all') }}
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        @endif
+
         <div class="dropdown">
             <button type="button" class="cv-header-icon" data-bs-toggle="dropdown" aria-expanded="false"
                     aria-label="Notifications{{ count($shell->notifications) ? ' ('.count($shell->notifications).' new)' : '' }}">

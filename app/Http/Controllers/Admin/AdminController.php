@@ -18,9 +18,11 @@ use App\Services\Deploy\DeployTasks;
 use App\Services\Plans\PlanCatalog;
 use App\Services\Scanning\ScanMaintenance;
 use App\Services\Scanning\ScanPlanner;
+use App\Services\Tours\TourService;
 use App\Services\Trials\TrialCosts;
 use App\Services\Trials\TrialGate;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -36,7 +38,7 @@ class AdminController extends Controller
 {
     public function teams(ContentService $content, BillingService $billing): View
     {
-        $teams = Team::query()->withCount(['users', 'hotels'])->latest()->paginate(25);
+        $teams = Team::query()->withCount(['users', 'hotels'])->with('users:id,name,email')->latest()->paginate(25);
         $totalMrr = [];
 
         Team::query()->whereIn('subscription_status', [SubscriptionStatus::Active->value, SubscriptionStatus::PastDue->value])
@@ -187,6 +189,21 @@ class AdminController extends Controller
         $trials->approveTrial($team);
 
         return back()->with('status', "Trial of {$team->name} approved. The owner was emailed.");
+    }
+
+    /**
+     * Offer every guided tour again to one member of a team.
+     */
+    public function resetTours(Request $request, Team $team, TourService $tours): RedirectResponse
+    {
+        $data = $request->validate(['user' => ['required', 'integer']]);
+        $user = $team->users()->whereKey($data['user'])->first();
+
+        abort_if($user === null, 404);
+
+        $tours->reset($user);
+
+        return back()->with('status', "Tours reset for {$user->name}: they will see every tour again.");
     }
 
     public function clearCaches(DeployTasks $tasks): RedirectResponse

@@ -57,7 +57,7 @@ class ReportController extends Controller
             $traffic = new AiTrafficReport($hotel, $period);
             $demand = new BookingDemandReport($hotel, $period);
             $data += [
-                'summary' => $traffic->summary(), 'charts' => $traffic->charts(), 'completeThrough' => $traffic->isIncomplete() ? $traffic->completeThrough() : null, 'dataWarning' => GoogleSelfCheck::warning($hotel->googleLink), 'tables' => $traffic->tables($options),
+                'summary' => $traffic->summary(), 'scriptSeen' => $traffic->scriptSeen(), 'charts' => $traffic->charts(), 'completeThrough' => $traffic->isIncomplete() ? $traffic->completeThrough() : null, 'dataWarning' => GoogleSelfCheck::warningFor($hotel->googleLink, (bool) $request->user()?->is_admin), 'tables' => $traffic->tables($options),
                 'findings' => $this->findings->forAiTraffic($hotel, $traffic),
                 'warnings' => ReportAvailability::warnings($hotel, ['receiving', 'purchases', 'cross_domain', 'ai_referrals']),
                 'bookingSetup' => ReportAvailability::bookingDates($hotel),

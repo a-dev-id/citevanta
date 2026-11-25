@@ -187,6 +187,14 @@ class AppServiceProvider extends ServiceProvider
         // Fallback URL cron: at most 6 calls a minute per IP.
         RateLimiter::for('cron', fn (Request $request) => Limit::perMinute(6)->by($request->ip()));
 
+        // The website tracking script endpoint: per public key, never per IP address (no IP is used or stored).
+        RateLimiter::for('tracking', function (Request $request) {
+            $body = json_decode((string) $request->getContent(), true);
+            $key = is_array($body) ? ($body['k'] ?? 'none') : 'none';
+
+            return Limit::perMinute((int) config('citevanta.tracking.rate_per_minute', 300))->by('tracking:'.substr(is_string($key) ? $key : 'none', 0, 40));
+        });
+
         // Google API jobs, well under GA4 and Search Console quotas.
         RateLimiter::for('google-api', fn () => Limit::perMinute((int) config('citevanta.google.requests_per_minute', 30))->by('google'));
     }

@@ -17,7 +17,7 @@
     @else
         <div class="row gx-3">
             <div class="col-xl-7">
-                <x-card title="1. Share access with {{ config('app.name') }}" subtitle="Read-only: we can see reports, never change anything. Share with this service account email." :collapsible="false">
+                <x-card title="1. Share access with {{ config('app.name') }}" subtitle="Read-only: we can see reports, never change anything. Share with this service account email." :collapsible="false" data-tour="google-share">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3" x-data="{ copied: false }">
                         <code class="fs-6" id="agent-email">{{ $agentEmail ?: 'not available yet' }}</code>
                         <button type="button" class="btn btn-sm btn-outline-primary" @disabled(! $agentEmail)
@@ -47,7 +47,7 @@
                     </ol>
                 </x-card>
 
-                <x-card title="2. Pick your property and site" :collapsible="false">
+                <x-card title="2. Pick your property and site" :collapsible="false" data-tour="google-pick">
                     <p class="small text-muted">We look for GA4 properties and Search Console sites shared with us that belong to <strong>{{ \App\Services\Support\Url::host($hotel->website) ?: 'your website' }}</strong>.</p>
                     <button type="button" class="btn btn-primary mb-3" wire:click="check" wire:loading.attr="disabled" wire:target="check">
                         <span wire:loading wire:target="check" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>

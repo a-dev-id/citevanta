@@ -207,6 +207,46 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Guided tours (onboarding) in the customer app
+    |--------------------------------------------------------------------------
+    */
+    'tours' => [
+        // false switches every tour off (the help button is hidden too). Admin > Teams can reset one user's tours.
+        'enabled' => (bool) env('TOURS_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Website tracking script (Private plan): AI referral visits and booking clicks
+    |--------------------------------------------------------------------------
+    */
+    'tracking' => [
+        // Events the endpoint accepts per minute for one public key (no IP address is used or stored).
+        'rate_per_minute' => (int) env('TRACKING_RATE_PER_MINUTE', 300),
+        // Events are kept this many months, then pruned by the housekeeping job.
+        'retention_months' => (int) env('TRACKING_RETENTION_MONTHS', 13),
+        // Booking links and buttons the script listens to (the hotel can change them in Settings).
+        'booking_selectors' => ['[data-booking]', '[data-citevanta-booking]', 'a.book-now', 'a.booking-link', 'button.book-now'],
+        // Query parameter names read from a booking link, per field (the hotel can change them).
+        'link_params' => [
+            'checkin' => ['checkin', 'check_in', 'check_in_date', 'checkindate', 'arrival', 'arrival_date', 'startdate', 'date_from', 'from'],
+            'checkout' => ['checkout', 'check_out', 'check_out_date', 'checkoutdate', 'departure', 'departure_date', 'enddate', 'date_to', 'to'],
+            'adults' => ['adults', 'adult', 'num_adults', 'guests'],
+            'children' => ['children', 'child', 'num_children', 'kids'],
+        ],
+        // Date inputs on the page that are read when the link has no dates (CSS selectors).
+        'date_inputs' => [
+            'checkin' => 'input[name*="checkin" i], input[name*="check_in" i], input[id*="checkin" i], input[id*="check-in" i]',
+            'checkout' => 'input[name*="checkout" i], input[name*="check_out" i], input[id*="checkout" i], input[id*="check-out" i]',
+            'adults' => 'input[name*="adult" i], select[name*="adult" i]',
+            'children' => 'input[name*="child" i], select[name*="child" i]',
+        ],
+        // How a date that is not YYYY-MM-DD is read: dmy (31/12/2026) or mdy (12/31/2026).
+        'date_format' => 'dmy',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Reports (Private plan: GA4 and Search Console, from our own synced tables)
     |--------------------------------------------------------------------------
     */

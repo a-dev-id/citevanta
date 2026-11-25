@@ -34,7 +34,7 @@
         @if ($dataWarning ?? null)
             <div class="alert alert-warning d-flex gap-2" role="alert" id="data-check-warning">
                 <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
-                <div>{{ $dataWarning }} The numbers below may be too high or too low until the next daily check agrees.</div>
+                <div>{{ $dataWarning }}</div>
             </div>
         @endif
 
@@ -84,6 +84,17 @@
                 @endforeach
             </div>
 
+            <p class="small mb-3" id="script-seen">
+                <i class="fa-solid fa-code me-1" aria-hidden="true"></i>
+                @if ($scriptSeen)
+                    <strong>Seen by the website script:</strong> {{ number_format($scriptSeen['ai']) }} visits from AI assistants @if ($scriptSeen['prev_ai'] !== null)<span class="text-muted">({{ $change($scriptSeen['ai'], $scriptSeen['prev_ai']) ?? 'no change figure' }})</span>@endif
+                    and {{ number_format($scriptSeen['clicks']) }} booking clicks @if ($scriptSeen['prev_clicks'] !== null)<span class="text-muted">({{ $change($scriptSeen['clicks'], $scriptSeen['prev_clicks']) ?? 'no change figure' }})</span>@endif
+                    in this period. <a href="{{ route('settings.website-script') }}">Website script</a>
+                @else
+                    <span class="text-muted">Add the website script to also count AI visits and booking clicks on your own website: <a href="{{ route('settings.website-script') }}">Settings &gt; Website script</a>.</span>
+                @endif
+            </p>
+
             <div class="row g-3 mb-3">
                 <div class="col-xl-6">
                     <x-card title="AI sessions" :collapsible="false">
@@ -101,7 +112,7 @@
                 <div class="mb-3"><x-report-table :table="$table" :hotel="$hotel" :period="$period" :currency="$currency" /></div>
             @endforeach
 
-            <h2 class="h5 mt-4">Searches by date</h2>
+            <h2 class="h5 mt-4" data-tour="searches-by-date">Searches by date</h2>
             @if ($bookingSetup)
                 <x-card :collapsible="false" class="mb-3">
                     <x-empty-state icon="fa-calendar-days" :text="$bookingSetup['title']">

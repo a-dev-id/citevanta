@@ -75,7 +75,7 @@ final class ReportFindings
     /** "(not set)" and empty names are pages GA4 did not record. */
     public static function isUnrecordedPage(string $name): bool
     {
-        return in_array(strtolower(trim($name)), ['', '(not set)', '(not provided)', '(other)'], true);
+        return in_array(strtolower(trim($name)), ['', '(not set)', '(not provided)', '(other)', 'not recorded by ga4'], true);
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\HotelGoogleLink;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Daily copies of GA4 and Search Console data in our own tables, so
@@ -29,11 +30,16 @@ final class GoogleSync
 
     public const GA4_EVENTS = 'ga4_events';
 
+    /** Daily totals of all traffic (date dimension only): the true "all sessions". */
+    public const GA4_TOTALS = 'ga4_totals';
+
     public const GSC_DAY = 'gsc_day';
 
     public const GA4_BOOKING_DATES = 'ga4_booking_dates';
 
     private const TRAFFIC_DIMENSIONS = ['date', 'sessionSource', 'sessionMedium', 'country', 'landingPage', 'deviceCategory'];
+
+    private const TOTALS_METRICS = ['sessions', 'engagedSessions', 'keyEvents', 'ecommercePurchases', 'purchaseRevenue'];
 
     private const TRAFFIC_METRICS = ['sessions', 'totalUsers', 'engagedSessions', 'keyEvents', 'ecommercePurchases', 'purchaseRevenue'];
 
@@ -55,7 +61,7 @@ final class GoogleSync
                 ? $yesterday->copy()->subMonthsNoOverflow((int) config('citevanta.google.ga4_first_sync_months', 13))
                 : $yesterday->copy()->subDays((int) config('citevanta.google.ga4_daily_days', 3) - 1);
 
-            foreach ([self::GA4_TRAFFIC, self::GA4_EVENTS] as $type) {
+            foreach ([self::GA4_TRAFFIC, self::GA4_EVENTS, self::GA4_TOTALS] as $type) {
                 // One chain per type, oldest window first: each window is read only after the one before it is complete.
                 GoogleSyncJob::dispatch($link->id, $type, $from->toDateString(), self::windowEnd($from->toDateString(), $yesterday->toDateString()), 0, $yesterday->toDateString());
                 $jobs++;
@@ -156,7 +162,7 @@ final class GoogleSync
 
         $wanted = Carbon::yesterday()->subMonthsNoOverflow((int) config('citevanta.google.ga4_first_sync_months', 25));
         $chains = 0;
-        $tables = [self::GA4_TRAFFIC => 'ga4_traffic_daily', self::GA4_EVENTS => 'ga4_events_daily'];
+        $tables = [self::GA4_TRAFFIC => 'ga4_traffic_daily', self::GA4_EVENTS => 'ga4_events_daily', self::GA4_TOTALS => 'ga4_totals_daily'];
 
         if (! empty(($link->date_mapping ?? [])['checkin'])) {
             $tables[self::GA4_BOOKING_DATES] = 'ga4_booking_dates_daily';
@@ -195,6 +201,45 @@ final class GoogleSync
     }
 
     /**
+     * Read only the last days (default 7) of traffic, daily totals, events and booking dates, replacing by date.
+     * The history is not touched. One window, so no chain.
+     *
+     * @return int jobs queued
+     */
+    public function syncRecent(HotelGoogleLink $link, int $days = 7): int
+    {
+        if ($link->ga4_property === null) {
+            return 0;
+        }
+
+        $to = Carbon::yesterday()->toDateString();
+        $from = Carbon::yesterday()->subDays($days - 1)->toDateString();
+        $types = [self::GA4_TRAFFIC, self::GA4_TOTALS, self::GA4_EVENTS];
+
+        if (! empty(($link->date_mapping ?? [])['checkin'])) {
+            $types[] = self::GA4_BOOKING_DATES;
+        }
+
+        foreach ($types as $type) {
+            GoogleSyncJob::dispatch($link->id, $type, $from, $to, 0, $to);
+        }
+
+        return count($types);
+    }
+
+    /**
+     * Sync the last days for every linked hotel of a team.
+     *
+     * @return array{hotels: int, jobs: int}
+     */
+    public function syncRecentTeam(int $teamId, int $days = 7): array
+    {
+        $links = HotelGoogleLink::query()->where('team_id', $teamId)->whereNotNull('ga4_property')->get();
+
+        return ['hotels' => $links->count(), 'jobs' => $links->sum(fn (HotelGoogleLink $link) => $this->syncRecent($link, $days))];
+    }
+
+    /**
      * Re-sync every linked hotel of a team.
      *
      * @return array{hotels: int, jobs: int}
@@ -204,6 +249,17 @@ final class GoogleSync
         $links = HotelGoogleLink::query()->where('team_id', $teamId)->whereNotNull('ga4_property')->get();
 
         return ['hotels' => $links->count(), 'jobs' => $links->sum(fn (HotelGoogleLink $link) => $this->resync($link))];
+    }
+
+    /** Sync jobs for this link are waiting in the queue: its data is still arriving. */
+    public static function hasPendingJobs(int $linkId): bool
+    {
+        if (! Schema::hasTable('jobs')) {
+            return false;
+        }
+
+        return DB::table('jobs')->where('queue', 'google')->pluck('payload')
+            ->contains(fn ($payload) => str_contains((string) (json_decode((string) $payload, true)['data']['command'] ?? ''), '"linkId";i:'.$linkId.';'));
     }
 
     /**
@@ -218,6 +274,7 @@ final class GoogleSync
         $next = match ($type) {
             self::GA4_TRAFFIC => $this->ga4Traffic($link, $from, $to, $offset, $batch),
             self::GA4_EVENTS => $this->ga4Events($link, $from, $to, $offset, $batch),
+            self::GA4_TOTALS => $this->ga4Totals($link, $from, $to, $offset, $batch),
             self::GA4_BOOKING_DATES => $this->ga4BookingDates($link, $from, $to, $offset, $batch),
             self::GSC_DAY => $this->gscDay($link, $from, $offset),
             default => null,
@@ -293,6 +350,45 @@ final class GoogleSync
         if (! empty($data['metadata']['dataLossFromOtherRow'])) {
             Log::warning('GA4 grouped some rows as "(other)"', ['hotel_id' => $link->hotel_id, 'type' => $type, 'from' => $from, 'to' => $to]);
         }
+    }
+
+    /**
+     * The exact GA4 runReport body of the daily totals sync (the date dimension only).
+     *
+     * @return array<string, mixed>
+     */
+    public static function totalsRequest(string $from, string $to, int $limit = 10000, int $offset = 0): array
+    {
+        return [
+            'dateRanges' => [['startDate' => $from, 'endDate' => $to]],
+            'dimensions' => [['name' => 'date']],
+            'metrics' => array_map(fn ($name) => ['name' => $name], self::TOTALS_METRICS),
+            'orderBys' => self::orderBy(['date']),
+            'limit' => (string) $limit,
+            'offset' => (string) $offset,
+            'returnPropertyQuota' => true,
+        ];
+    }
+
+    private function ga4Totals(HotelGoogleLink $link, string $from, string $to, int $offset, ?string $batch): ?int
+    {
+        $limit = (int) config('citevanta.google.ga4_page_size', 10000);
+        $data = $this->api->runReport((string) $link->ga4_property, self::totalsRequest($from, $to, $limit, $offset));
+
+        $rows = array_map(function (array $row) use ($link): array {
+            [$sessions, $engaged, $keyEvents, $purchases, $revenue] = array_map(fn ($v) => (float) ($v['value'] ?? 0), $row['metricValues']);
+
+            return [
+                'hotel_id' => $link->hotel_id, 'date' => self::date((string) $row['dimensionValues'][0]['value']),
+                'sessions' => (int) $sessions, 'engaged_sessions' => (int) $engaged, 'key_events' => (int) $keyEvents,
+                'purchases' => (int) $purchases, 'revenue' => round($revenue, 2),
+            ];
+        }, (array) ($data['rows'] ?? []));
+        $next = $offset + $limit < (int) ($data['rowCount'] ?? 0) ? $offset + $limit : null;
+
+        $this->store('ga4_totals_daily', $rows, ['hotel_id', 'date'], ['sessions', 'engaged_sessions', 'key_events', 'purchases', 'revenue'], $link->hotel_id, $from, $to, $batch, $next === null);
+
+        return $next;
     }
 
     private function ga4Events(HotelGoogleLink $link, string $from, string $to, int $offset, ?string $batch): ?int

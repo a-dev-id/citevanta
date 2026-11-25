@@ -252,7 +252,8 @@ class GoogleSyncRobustnessTest extends TestCase
         $warning = GoogleSelfCheck::warning($link->fresh());
         $this->assertStringContainsString('Data may be incomplete', $warning);
 
-        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('id="data-check-warning"', false)->assertSee('Data may be incomplete')->assertSee('32,155')->assertSee('25,637');
+        $this->actingAs($owner)->get(route('hotels.reports', $hotel))->assertOk()->assertSee('id="data-check-warning"', false)
+            ->assertSee('Some totals are being checked and may change.')->assertDontSee('Data may be incomplete')->assertDontSee('25,637');
         $admin = User::factory()->admin()->create();
         $this->actingAs($admin)->get(route('admin.integrations.google'))->assertOk()->assertSee('Data may be incomplete')->assertSee($hotel->name);
     }

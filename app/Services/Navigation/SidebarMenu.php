@@ -48,6 +48,7 @@ final class SidebarMenu
                     ...($user?->ownsTeam($user->currentTeam) && $user->currentTeam->isPrivate() ? [
                         $this->item('settings.ai-key', 'AI key', 'fa-key', route: 'settings.ai-key', activeOn: 'settings.ai-key*'),
                         $this->item('settings.google', 'Connect Google', 'fa-chart-line', route: 'settings.google', activeOn: 'settings.google*'),
+                        $this->item('settings.website-script', 'Website script', 'fa-code', route: 'settings.website-script', activeOn: 'settings.website-script*'),
                     ] : []),
                 ]),
             ],

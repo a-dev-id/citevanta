@@ -1263,3 +1263,131 @@ $cv-heat-levels: (0: 0%, 1: 14%, 2: 30%, 3: 50%, 4: 75%, 5: 100%);
     &.is-in { background: rgba(var(--bs-primary-rgb), .15); border-radius: 0; }
     &.is-edge { background: var(--bs-primary); color: #fff; }
 }
+
+
+// -- Guided tours (resources/js/tour.js): dimmed page, outline around one element, popover -----------
+.cv-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+}
+
+// Catches clicks while the tour is open, so the page behind does not react.
+.cv-tour__click {
+    position: fixed;
+    inset: 0;
+}
+
+// The dimming is the big shadow around the clear outline.
+.cv-tour__spot {
+    position: fixed;
+    border: 2px solid #fff;
+    border-radius: .4rem;
+    box-shadow: 0 0 0 9999px rgba(10, 14, 20, .62);
+    pointer-events: none;
+    transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease;
+}
+
+.cv-tour__pop {
+    position: fixed;
+    overflow: hidden;
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .35);
+    transition: top .25s ease, left .25s ease;
+
+    &:focus { outline: 0; }
+}
+
+.cv-tour__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .6rem .85rem;
+    background: $cv-header-bg;
+    color: #fff;
+}
+
+.cv-tour__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.cv-tour__close {
+    padding: .1rem .4rem;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    opacity: .85;
+
+    &:hover { opacity: 1; }
+}
+
+.cv-tour__text {
+    margin: 0;
+    padding: .85rem .85rem .5rem;
+    line-height: 1.55;
+}
+
+.cv-tour__remember {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: 0 .85rem;
+    font-size: $cv-font-size-sm;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+}
+
+.cv-tour__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .75rem .85rem .85rem;
+}
+
+.cv-tour__counter {
+    font-size: $cv-font-size-sm;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.cv-tour__buttons {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    margin-left: auto;
+}
+
+// Visible keyboard focus on every control of the popover.
+.cv-tour__pop :is(button, input, a):focus-visible {
+    outline: 3px solid $cv-primary;
+    outline-offset: 2px;
+}
+
+.cv-tour__header .cv-tour__close:focus-visible { outline-color: #fff; }
+
+.cv-tour-toast {
+    position: fixed;
+    z-index: 3001;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(28rem, 92vw);
+    padding: .6rem 1rem;
+    border-radius: .4rem;
+    background: $cv-header-bg;
+    color: #fff;
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cv-tour__spot,
+    .cv-tour__pop { transition: none; }
+}

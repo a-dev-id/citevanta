@@ -12,7 +12,7 @@
 
 <div>
     <x-page-header :title="$hotel->name" :breadcrumbs="$crumbs">
-        <span class="d-none d-xl-inline text-nowrap">Last scan: {{ $fmt($d->lastCompletedAt) }}</span>
+        <span class="d-none d-xl-inline text-nowrap" data-tour="last-scan">Last scan: {{ $fmt($d->lastCompletedAt) }}</span>
         <span class="d-none d-xl-inline text-nowrap">Next scheduled: {{ $d->nextScheduledAt ? $fmt($d->nextScheduledAt) : 'Not scheduled' }}</span>
         <span class="d-inline-flex flex-column align-items-end">
             <button type="button" class="btn btn-sm btn-primary text-nowrap"

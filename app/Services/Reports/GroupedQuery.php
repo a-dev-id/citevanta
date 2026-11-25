@@ -34,13 +34,13 @@ final class GroupedQuery
      */
     public function page(TableView $view): array
     {
-        $current = ($this->current)()->groupBy($this->column)->selectRaw("{$this->column} as name, {$this->currentSelect}");
+        $current = ($this->current)()->groupByRaw($this->column)->selectRaw("{$this->column} as name, {$this->currentSelect}");
         $query = DB::query()->fromSub($current, 'c');
         $select = ['c.*'];
 
         if ($this->previous !== null) {
             $aggregates = implode(', ', array_map(fn (string $alias) => $this->previousAggregate($alias), $this->previousMetrics));
-            $previous = ($this->previous)()->groupBy($this->column)->selectRaw("{$this->column} as name, {$aggregates}");
+            $previous = ($this->previous)()->groupByRaw($this->column)->selectRaw("{$this->column} as name, {$aggregates}");
             $query->leftJoinSub($previous, 'p', 'p.name', '=', 'c.name');
 
             foreach ($this->previousMetrics as $alias) {

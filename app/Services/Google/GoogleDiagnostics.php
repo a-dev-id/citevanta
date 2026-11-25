@@ -54,6 +54,7 @@ final class GoogleDiagnostics
         try {
             $this->singleDay($hotel->id, (string) $link->ga4_property, $day, $source);
             $this->period($hotel->id, (string) $link->ga4_property, $from, $to);
+            $this->totals($hotel->id, (string) $link->ga4_property, $from, $to);
         } catch (GoogleApiException $e) {
             $this->add('');
             $this->add('Google refused the live request: '.$e->getMessage());
@@ -163,6 +164,60 @@ final class GoogleDiagnostics
         $stored = DB::table('ga4_traffic_daily')->where('hotel_id', $hotelId)->where('date', $day)->where('source', $source)
             ->selectRaw('coalesce(sum(sessions),0) s, coalesce(sum(purchases),0) p, coalesce(sum(revenue),0) r')->first();
         $this->add(sprintf('GA4 now: %d sessions, %d purchases, %.2f revenue | Stored: %d sessions, %d purchases, %.2f revenue | %s', $live['sessions'], $live['purchases'], $live['revenue'], $stored->s, $stored->p, $stored->r, $live['sessions'] === (int) $stored->s ? 'MATCH' : 'DIFFERENT'));
+    }
+
+    /**
+     * Why "all sessions" can differ: the stored rows by sync batch and by date (are rows of more than one batch
+     * there for the same dates?), and three live GA4 requests for the same range - the detailed rows added up,
+     * only the date dimension added up, and no dimensions - so we can see whether GA4 is non-additive.
+     */
+    private function totals(int $hotelId, string $property, Carbon $from, Carbon $to): void
+    {
+        $a = $from->toDateString();
+        $b = $to->toDateString();
+        $this->add('');
+        $this->add("== 6. All traffic {$a} to {$b}: stored rows and live totals");
+
+        $detail = fn () => DB::table('ga4_traffic_daily')->where('hotel_id', $hotelId)->whereBetween('date', [$a, $b]);
+        $this->add('Stored detailed rows by sync batch (batch: rows, sessions, first to last date):');
+        foreach ($detail()->groupBy('sync_batch')->selectRaw('sync_batch, count(*) as n, sum(sessions) as s, min(date) as first, max(date) as last')->orderBy('first')->get() as $row) {
+            $this->add(sprintf('  %-14s %7d rows %9d sessions  %s to %s', $row->sync_batch ?? '(no batch)', $row->n, $row->s, $row->first, $row->last));
+        }
+
+        $many = $detail()->groupBy('date')->havingRaw("count(distinct coalesce(sync_batch, '-')) > 1")->selectRaw('date')->pluck('date')->map(fn ($d) => Carbon::parse($d)->toDateString());
+        $this->add('Dates with rows of more than one batch: '.($many->isEmpty() ? 'none' : $many->count().' ('.$many->take(10)->implode(', ').($many->count() > 10 ? ', ...' : '').')'));
+
+        $stored = (int) $detail()->sum('sessions');
+        $totals = DB::table('ga4_totals_daily')->where('hotel_id', $hotelId)->whereBetween('date', [$a, $b])->selectRaw('count(*) as days, coalesce(sum(sessions),0) as sessions')->first();
+        $this->add("Stored detailed rows added up: {$stored} sessions. Stored daily totals: {$totals->sessions} sessions on {$totals->days} days.");
+
+        $range = [['startDate' => $a, 'endDate' => $b]];
+        $dimensional = 0;
+        $rows = 0;
+        for ($page = 0; $page < 10; $page++) {
+            $data = $this->api->runReport($property, GoogleSync::trafficRequest($a, $b, 10000, $page * 10000));
+            foreach ((array) ($data['rows'] ?? []) as $row) {
+                $dimensional += (int) $row['metricValues'][0]['value'];
+                $rows++;
+            }
+            if ($page * 10000 + 10000 >= (int) ($data['rowCount'] ?? 0)) {
+                break;
+            }
+        }
+        $byDate = 0;
+        foreach ((array) ($this->api->runReport($property, GoogleSync::totalsRequest($a, $b))['rows'] ?? []) as $row) {
+            $byDate += (int) $row['metricValues'][0]['value'];
+        }
+        $none = (int) ($this->api->runReport($property, ['dateRanges' => $range, 'metrics' => [['name' => 'sessions']]])['rows'][0]['metricValues'][0]['value'] ?? 0);
+
+        $this->add('Live GA4, same range:');
+        $this->add("  detailed rows ({$rows} rows) added up: {$dimensional} sessions");
+        $this->add("  date dimension only, added up:      {$byDate} sessions");
+        $this->add("  no dimensions (the range total):    {$none} sessions");
+        $this->add($dimensional > $none * 1.02
+            ? '  -> the detailed rows add up to MORE than GA4 reports: GA4 is not additive here, so all-traffic numbers come from the daily totals.'
+            : '  -> the detailed rows add up to the GA4 total (within 2%).');
+        $this->add($none > 0 && abs($byDate - $none) > $none * 0.02 ? '  -> the daily totals differ from the range total by more than 2% (sessions that span midnight).' : '  -> the daily totals match the range total (within 2%).');
     }
 
     private function period(int $hotelId, string $property, Carbon $from, Carbon $to): void

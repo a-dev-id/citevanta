@@ -13,6 +13,8 @@
 
 @php
     $shell ??= \App\Services\Navigation\ShellData::for(auth()->user(), $activeMenu);
+    // The guided tour of this page (null when there is none for this user: see App\Services\Tours\TourService).
+    $tour = auth()->check() ? app(\App\Services\Tours\TourService::class)->forPage(auth()->user(), request()->route()?->getName()) : null;
 @endphp
 
 <!DOCTYPE html>
@@ -55,6 +57,11 @@
             @endif
         </footer>
     </main>
+
+    @if ($tour)
+        <script type="application/json" id="cv-tour-data">@json($tour)</script>
+    @endif
+    <div id="cv-tour-urls" data-reset="{{ route('tours.reset') }}" data-restarted="{{ __('tours.ui.restarted') }}" hidden></div>
 
     @livewireScripts
 </body>
