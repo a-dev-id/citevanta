@@ -1,11 +1,11 @@
-# Release 1.9.0 (25 Nov 2026)
+# Release 1.10.0 (25 Nov 2026)
 
 Two zips, in `releases/`. **Each one is uploaded into its own target folder and extracted there**, so nothing can land in the wrong place:
 
 | Zip | Open this folder in File Manager | What is inside (at the zip root, no wrapper folder) |
 | --- | --- | --- |
-| `citevanta-app-1.9.0-{timestamp}.zip` | `/home/balj5948/citevanta` | the whole app, `vendor/` without dev packages, `public/build/`, `release.json` and this file |
-| `citevanta-public-1.9.0-{timestamp}.zip` | `/home/balj5948/public_html/citevanta.a-dashboard.com` | `build/`, `images/` and the favicon files |
+| `citevanta-app-1.10.0-{timestamp}.zip` | `/home/balj5948/citevanta` | the whole app, `vendor/` without dev packages, `public/build/`, `release.json` and this file |
+| `citevanta-public-1.10.0-{timestamp}.zip` | `/home/balj5948/public_html/citevanta.a-dashboard.com` | `build/`, `images/` and the favicon files |
 
 Not in the zips, so the live ones stay as they are: `.env`, everything in `storage/` (so a Google key file you upload there is never overwritten), and in the document root the `index.php` (your `usePublicPath` edit) and `.htaccess` (unchanged since 18 Nov).
 
@@ -15,15 +15,17 @@ Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_a
 
 ---
 
-## Not released yet (after 1.9.0)
+## What changed in 1.10.0 (since 1.9.0)
+
+This zip also contains everything from 1.9.0. If you did not upload 1.9.0, its changes are listed in the next section and all four new migrations and all four new `.env` keys apply to you. If 1.9.0 is already live, only the setup checklist (and its migration and `.env` key) is new.
 
 - **Setup checklist:** a floating, minimizable "Get started" card at the bottom right of the customer app (a pill on a narrow screen, opening as a bottom sheet). Its items tick by themselves from real data: verify your email, add your hotel, hotel facts, 3 competitors, 10 active prompts, first scan, first recommendation, and on the Private plan the OpenAI key with budget, Connect Google, the website script and tracking health. Trial teams also get an "Upgrade when you are ready" item that is not counted. Remembered per user and team; "All set" shows once and then it hides; "Setup checklist" in the "?" menu brings it back; hidden during guided tours and on admin pages. Admin > Teams > Reset checklist. See docs/SETUP-CHECKLIST.md.
-- **New migration (1):** `create_setup_checklist_states_table` (a new table; nothing is deleted).
+- **New migration:** `create_setup_checklist_states_table` (a new table; nothing is deleted).
 - **New `.env` key (optional):** `SETUP_CHECKLIST_ENABLED=true` (`false` switches the checklist off).
 
 ---
 
-## What changed in 1.9.0 (since 1.8.0)
+## What changed in 1.9.0 (since 1.8.0, included in 1.10.0)
 
 - **Re-sync from scratch and Backfill older data also copy the daily totals** (`ga4_totals_daily`) for every month they copy, not only Sync now and the daily sync. A team that has history but no totals gets them for every month from Backfill.
 - **All-traffic totals fixed:** "all sessions", "all purchases" and "all revenue" (and the AI share percentages and findings) now come from daily totals (a GA4 request with only the date dimension), because adding up the detailed rows gave more sessions than GA4 reports. The self-check compares the totals and the AI rows. Run diagnostics shows the stored rows by sync batch and three live totals. **Sync now (last 7 days)** button and `citevanta:google-sync-now`. After upgrading, click Sync now (or Re-sync) once to fill the daily totals; until a day has its total, its detailed rows are used.
@@ -85,13 +87,14 @@ Every build writes a new `release.json` (`id`, `version`, `build_date`, `built_a
 
 ## New migrations (run by "Run deploy tasks")
 
-From 1.8.0, "Run deploy tasks" runs these **3** migrations. All three create new tables; nothing is deleted:
+From 1.8.0, "Run deploy tasks" runs these **4** migrations. All four create new tables; nothing is deleted. If 1.9.0 is already live, only number 4 runs.
 
 1. `2026_11_25_010955_create_ga4_totals_daily_table`: daily totals of all traffic (the true "all sessions").
 2. `2026_11_25_012339_create_hotel_tracking_tables`: the website script (a key and settings per hotel, and the events it sends; no IP addresses).
 3. `2026_11_25_013953_create_user_tours_table`: where each user is with each guided tour.
+4. `2026_11_25_022611_create_setup_checklist_states_table`: whether each user left the setup checklist expanded, minimized or hidden.
 
-If you skipped 1.8.0 or older versions, "Run deploy tasks" also runs the earlier ones: `2026_11_24_091221_add_booking_dates_for_reports`, `2026_11_24_132838_add_sync_batch_to_ga4_tables`, `2026_11_24_135108_add_data_check_to_hotel_google_links` and `2026_11_24_140130_add_report_page_size_to_users` (a table and empty columns).
+If you skipped older versions too, "Run deploy tasks" also runs the earlier ones: `2026_11_24_091221_add_booking_dates_for_reports`, `2026_11_24_132838_add_sync_batch_to_ga4_tables`, `2026_11_24_135108_add_data_check_to_hotel_google_links` and `2026_11_24_140130_add_report_page_size_to_users` (a table and empty columns).
 
 ---
 
@@ -114,6 +117,7 @@ All are in `.env.production.example`. Copy the new lines into the live `.env`.
 | `TRACKING_RATE_PER_MINUTE` | 300 | Website script events accepted per minute for one hotel's public key. New in 1.9.0. |
 | `TRACKING_RETENTION_MONTHS` | 13 | Months the website script events are kept. New in 1.9.0. |
 | `TOURS_ENABLED` | true | `false` switches every guided tour and the help button off. New in 1.9.0. |
+| `SETUP_CHECKLIST_ENABLED` | true | `false` switches the floating setup checklist off. New in 1.10.0. |
 | `GA4_FIRST_SYNC_MONTHS` | 25 | Months of GA4 history the first sync copies (1.8.0). |
 
 (Other optional keys:)
@@ -154,21 +158,21 @@ Never put the key file in `public_html`, an email, chat or git.
 ## Upload steps (cPanel File Manager)
 
 1. **Back up.**
-   - In File Manager, copy `/home/balj5948/citevanta/.env` to `.env.backup-2026-11-25-1.9.0` (same folder).
+   - In File Manager, copy `/home/balj5948/citevanta/.env` to `.env.backup-2026-11-25-1.10.0` (same folder).
    - Export the database: cPanel > phpMyAdmin > your database > Export, or cPanel > Backup.
 2. **App zip.**
    1. In File Manager, open the folder `/home/balj5948/citevanta` (you should see `app`, `config`, `vendor`, `.env` inside).
-   2. Click **Upload** and choose `citevanta-app-1.9.0-{timestamp}.zip`.
+   2. Click **Upload** and choose `citevanta-app-1.10.0-{timestamp}.zip`.
    3. Back in the folder, select the zip, click **Extract**, and make sure **"Overwrite existing files" is on**. Extract to `/home/balj5948/citevanta` (the same folder, not a sub-folder).
 3. **Public zip.**
    1. Open the folder `/home/balj5948/public_html/citevanta.a-dashboard.com` (you should see `index.php` and `.htaccess`).
-   2. Click **Upload** and choose `citevanta-public-1.9.0-{timestamp}.zip`.
+   2. Click **Upload** and choose `citevanta-public-1.10.0-{timestamp}.zip`.
    3. Select the zip, click **Extract**, **"Overwrite existing files" on**, to that same folder.
 4. **`.env`:** remove the old `GOOGLE_*` lines if present, and add the optional lines you want (see above). If you are not turning Google on yet, change nothing else.
 5. **Run Deploy tasks, then Clear caches:** log in, open `https://citevanta.a-dashboard.com/admin/system`, click **Run deploy tasks** (it runs the new migrations), then **Clear caches**.
 6. **Verify.**
    - Open `/home/balj5948/citevanta/release.json`. The `"id"` must be **the release id the build printed**.
-   - The admin footer and Admin > System show `v1.9.0 · 25 Nov 2026`, the same release id and the build time.
+   - The admin footer and Admin > System show `v1.10.0 · 25 Nov 2026`, the same release id and the build time.
    - Admin > System says "release.json and the running code agree". A yellow "The upload looks half done" warning means release.json and the running code are different versions: see Troubleshooting.
 7. **Quick checks:** `/` (public home page, signed out), `/pricing`, Admin > Integrations > Google (opens, shows the email or "Not set (fake data)"), and, as a Private team, the **Reports** menu item. Admin > System > cron shows a recent run.
 8. **Clean up:** delete both zips from the server folders.
@@ -180,7 +184,7 @@ Never put the key file in `public_html`, an email, chat or git.
    5. Optional afterwards: **Sync now (last 7 days)** refreshes only the latest days.
    Search Console is not touched.
 
-**If something goes wrong:** restore `.env.backup-2026-11-25-1.9.0` and the database export, and tell me what the page shows.
+**If something goes wrong:** restore `.env.backup-2026-11-25-1.10.0` and the database export, and tell me what the page shows.
 
 ---
 
